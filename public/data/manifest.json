@@ -1,0 +1,33 @@
+{
+  "store_name": "따뜻한 아이스 아메리카노의 만족감",
+  "business_type": "카페",
+  "open_hour": 7,
+  "close_hour": 22,
+  "episode_days": 30,
+  "capacity_limit": 265,
+  "low_sat_threshold": 45,
+  "baseline_key": "custom_busy_aware",
+  "reward_formula": "임시 : 하루 주문별 이익(원)",
+  "records": [
+    {
+      "key": "do_nothing",
+      "label": "아무것도 안 함 (항상 0%)",
+      "file": "data/replay_do_nothing.json"
+    },
+    {
+      "key": "always_max",
+      "label": "매일 최대로 행동 (비 오는 날 10%)",
+      "file": "data/replay_always_max.json"
+    },
+    {
+      "key": "random",
+      "label": "무작위 (0%·5%·10% 무작위)",
+      "file": "data/replay_random.json"
+    },
+    {
+      "key": "custom_busy_aware",
+      "label": "내가 정한 규칙 (혼잡도·만족도 반영, 가정)",
+      "file": "data/replay_custom_busy_aware.json"
+    }
+  ]
+}

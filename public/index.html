@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>따뜻한 아이스 아메리카노의 만족감 — 매장 재생 화면</title>
+<style>
+  :root {
+    --teal: #0f5c5c;
+    --teal-soft: #e6f2f2;
+    --green: #1b8a4b;
+    --orange: #d97706;
+    --red: #c93838;
+    --ink: #1f2933;
+    --muted: #52606d;
+    --card-bg: rgba(255, 255, 255, 0.90);
+    --border: rgba(15, 92, 92, 0.14);
+    --shadow: 0 6px 20px rgba(15, 35, 40, 0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    color: var(--ink);
+    background: #dbeafe;
+  }
+  #scene {
+    position: fixed; inset: 0; width: 100vw; height: 100vh; display: block;
+  }
+  .card {
+    position: fixed;
+    background: var(--card-bg);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    z-index: 10;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  /* 왼쪽 위 작은 카드 */
+  #status-card {
+    top: 12px; left: 12px; width: 292px; padding: 10px 12px;
+  }
+  .store-title {
+    font-size: 13px; font-weight: 700; color: var(--teal);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .status-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; font-size: 12px; color: var(--ink);
+  }
+  .status-sub {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; margin-top: 3px; font-size: 11.5px; color: var(--muted);
+  }
+  .pill {
+    display: inline-block; padding: 1px 7px; border-radius: 999px;
+    background: var(--teal-soft); color: var(--teal); font-weight: 700; font-size: 11px;
+  }
+  /* 왼쪽 프로젝트 소개 카드 */
+  #intro-card {
+    top: 96px; left: 12px; width: 292px; padding: 8px 12px 10px;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+    font-weight: 700; font-size: 12.5px; color: var(--teal);
+  }
+  .card-toggle {
+    font-size: 11px; color: var(--muted); font-weight: 600;
+  }
+  .intro-body { margin-top: 6px; }
+  .intro-row {
+    display: flex; gap: 5px; padding: 2px 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 11px;
+  }
+  .intro-k {
+    color: var(--teal); font-weight: 700; flex-shrink: 0;
+  }
+  .intro-v {
+    color: var(--ink); overflow: hidden; text-overflow: ellipsis;
+  }
+  .intro-v small { color: var(--muted); font-size: 10.5px; }
+  .intro-foot {
+    margin-top: 6px; padding-top: 5px;
+    border-top: 1px dashed rgba(15, 92, 92, 0.2);
+    font-size: 11px; color: var(--teal); font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .collapsed .intro-body,
+  .collapsed .result-body { display: none; }
+
+  /* 오른쪽 위 결과 카드 */
+  #result-card {
+    top: 12px; right: 12px; width: 292px; padding: 9px 12px 10px;
+  }
+  .result-body { margin-top: 7px; }
+  .select-grid {
+    display: grid; grid-template-columns: 1fr; gap: 5px; margin-bottom: 8px;
+  }
+  .select-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .select-row label {
+    font-size: 11px; font-weight: 700; color: var(--teal); width: 52px; flex-shrink: 0;
+  }
+  select {
+    flex: 1; min-width: 0; width: 0; max-width: 100%;
+    font-family: inherit; font-size: 11.5px; color: var(--ink);
+    background: #fff; border: 1px solid rgba(15, 92, 92, 0.28);
+    border-radius: 6px; padding: 3px 6px;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .section-box {
+    background: rgba(245, 250, 250, 0.85);
+    border: 1px solid rgba(15, 92, 92, 0.12);
+    border-radius: 8px; padding: 7px 9px; margin-bottom: 6px;
+  }
+  .section-title {
+    font-size: 11px; font-weight: 700; color: var(--teal); margin-bottom: 4px;
+  }
+  .big-metric {
+    font-size: 20px; font-weight: 800; color: var(--teal); letter-spacing: -0.3px;
+    line-height: 1.2; margin-bottom: 3px;
+  }
+  .kv-line {
+    display: flex; justify-content: space-between; gap: 8px;
+    font-size: 11.5px; padding: 1px 0;
+  }
+  .kv-line span:first-child { color: var(--muted); }
+  .kv-line span:last-child { font-weight: 700; color: var(--ink); }
+  .judge-good { color: var(--green) !important; }
+  .judge-bad { color: var(--red) !important; }
+  .judge-eq { color: var(--teal) !important; }
+
+  /* 아래 가운데 재생 막대 */
+  #playback-bar {
+    bottom: 12px; left: 50%; transform: translateX(-50%);
+    width: min(720px, calc(100vw - 24px));
+    padding: 8px 12px;
+  }
+  .controls-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-bottom: 7px; flex-wrap: wrap;
+  }
+  .btn-group { display: flex; align-items: center; gap: 5px; }
+  button {
+    font-family: inherit; font-size: 11.5px; font-weight: 700;
+    border: 1px solid rgba(15, 92, 92, 0.25);
+    background: #fff; color: var(--teal);
+    border-radius: 7px; padding: 4px 10px; cursor: pointer;
+  }
+  button:hover { background: var(--teal-soft); }
+  button.active {
+    background: var(--teal); color: #fff; border-color: var(--teal);
+  }
+  .day-strip {
+    display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px;
+  }
+  .day-cell {
+    height: 18px; border-radius: 4px; cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    position: relative; transition: transform 0.1s;
+  }
+  .day-cell:hover { transform: scaleY(1.18); }
+  .day-cell.current {
+    outline: 2px solid var(--teal); outline-offset: 1px; z-index: 2;
+  }
+  .legend-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 5px; font-size: 10.5px; color: var(--muted);
+  }
+  .legend-dots { display: flex; gap: 10px; align-items: center; }
+  .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    margin-right: 3px; vertical-align: middle;
+  }
+
+  @media (max-width: 960px) {
+    #status-card, #intro-card { width: 248px; }
+    #result-card {
+      top: auto; bottom: 98px; right: 12px; width: 268px;
+      max-height: 44vh; overflow-y: auto;
+    }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- 왼쪽 위 작은 카드 -->
+<div id="status-card" class="card">
+  <div class="store-title" id="ui-store-name">따뜻한 아이스 아메리카노의 만족감</div>
+  <div class="status-row">
+    <span id="ui-date">2025-01-01 (수)</span>
+    <span class="pill" id="ui-day-badge">1 / 30일</span>
+  </div>
+  <div class="status-sub">
+    <span id="ui-clock">07:00</span>
+    <span id="ui-weather">☀️ 맑음 · 3.2°C</span>
+  </div>
+</div>
+
+<!-- 왼쪽 프로젝트 소개 카드 (2-1) -->
+<div id="intro-card" class="card">
+  <div class="card-head" id="intro-toggle">
+    <span>ⓘ 프로젝트 소개</span>
+    <span class="card-toggle" id="intro-toggle-txt">접기 ▴</span>
+  </div>
+  <div class="intro-body">
+    <div class="intro-row"><span class="intro-k">프로젝트 :</span><span class="intro-v">따뜻한 아이스 아메리카노의 만족감(카페)</span></div>
+    <div class="intro-row"><span class="intro-k">결정 :</span><span class="intro-v">비 오는 날 하루 1회 포장 할인 폭 선택</span></div>
+    <div class="intro-row"><span class="intro-k">목적 :</span><span class="intro-v">30일 누적 이익 최대 <small>(제시간률·만족도)</small></span></div>
+    <div class="intro-row"><span class="intro-k">에이전트(Agent) :</span><span class="intro-v">매장 매니저</span></div>
+    <div class="intro-row"><span class="intro-k">상태(State) :</span><span class="intro-v">만족도 · 남은 날 · 날씨 · 주말 외 2개</span></div>
+    <div class="intro-row"><span class="intro-k">행동(Action) :</span><span class="intro-v">포장 할인 3종 (0% · 5% · 10%)</span></div>
+    <div class="intro-row"><span class="intro-k">보상(Reward) :</span><span class="intro-v" id="ui-reward-formula">임시 : 하루 주문별 이익(원)</span></div>
+    <div class="intro-row"><span class="intro-k">한 걸음 · 에피소드 :</span><span class="intro-v">하루 · 30일</span></div>
+    <div class="intro-foot" id="ui-playing-record">재생 중 : 불러오는 중...</div>
+  </div>
+</div>
+
+<!-- 오른쪽 위 결과 카드 (3절) -->
+<div id="result-card" class="card">
+  <div class="card-head" id="result-toggle">
+    <span>📊 평가 결과</span>
+    <span class="card-toggle" id="result-toggle-txt">접기 ▴</span>
+  </div>
+  <div class="result-body">
+    <div class="select-grid">
+      <div class="select-row">
+        <label for="record-select">기록</label>
+        <select id="record-select"></select>
+      </div>
+      <div class="select-row">
+        <label for="episode-select">에피소드</label>
+        <select id="episode-select"></select>
+      </div>
+    </div>
+
+    <div class="section-box">
+      <div class="section-title">전체 평가 결과 (36판 평균)</div>
+      <div class="big-metric" id="ui-overall-profit">-</div>
+      <div class="kv-line"><span>평균 제시간 제공률</span><span id="ui-overall-ontime">-</span></div>
+      <div class="kv-line"><span>평균 최종 만족도</span><span id="ui-overall-sat">-</span></div>
+      <div class="kv-line"><span>평균 45 미만 일수</span><span id="ui-overall-lowdays">-</span></div>
+    </div>
+
+    <div class="section-box">
+      <div class="section-title">판별 기준 (내가 정한 규칙 대비)</div>
+      <div class="kv-line"><span>기준 평균 이익</span><span id="ui-base-profit">-</span></div>
+      <div class="kv-line"><span>현재 기록 차이</span><span id="ui-base-diff">-</span></div>
+    </div>
+
+    <div class="section-box" style="margin-bottom:0;">
+      <div class="section-title">이번 에피소드 (오늘까지 누적)</div>
+      <div class="kv-line"><span>누적 주문별 이익</span><span id="ui-ep-profit">-</span></div>
+      <div class="kv-line"><span>누적 보상</span><span id="ui-ep-reward">-</span></div>
+      <div class="kv-line"><span>오늘 할인 · 주문</span><span id="ui-ep-today">-</span></div>
+      <div class="kv-line"><span>제시간 제공률 · 만족도</span><span id="ui-ep-sat">-</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 아래 가운데 재생 막대 -->
+<div id="playback-bar" class="card">
+  <div class="controls-row">
+    <div class="btn-group">
+      <button id="btn-prev" title="이전 날">◀ 이전</button>
+      <button id="btn-play" class="active">❚❚ 일시정지</button>
+      <button id="btn-next" title="다음 날">다음 ▶</button>
+    </div>
+    <div class="btn-group" id="speed-group">
+      <button data-speed="1">1배속</button>
+      <button data-speed="10">10배속</button>
+      <button data-speed="30">30배속</button>
+      <button data-speed="60" class="active">60배속</button>
+    </div>
+  </div>
+  <div class="day-strip" id="day-strip"></div>
+  <div class="legend-row">
+    <div class="legend-dots">
+      <span><i class="dot" style="background:#56a8d8"></i>비/눈</span>
+      <span><i class="dot" style="background:#9bd3a8"></i>맑음(여유)</span>
+      <span><i class="dot" style="background:#f3b562"></i>혼잡(한도 초과)</span>
+      <span><i class="dot" style="background:#e07a7a"></i>만족도 45 미만</span>
+    </div>
+    <span id="ui-today-tags">평일</span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("scene");
+  const ctx = canvas.getContext("2d");
+
+  const state = {
+    manifest: null,
+    personas: [],
+    replays: {},
+    baselineMeanProfit: null,
+    currentKey: "do_nothing",
+    currentEpIdx: 0,
+    currentDayIdx: 0,
+    minuteOfDay: 7 * 60,
+    playing: true,
+    speed: 60,
+    lastFrameTs: 0,
+    dayEntities: null,
+    rainDrops: [],
+    snowFlakes: [],
+    clouds: [],
+    stars: [],
+  };
+
+  const OPEN_MIN = 7 * 60;
+  const CLOSE_MIN = 22 * 60;
+  const TOTAL_MIN = CLOSE_MIN - OPEN_MIN; // 900분
+
+  // 초기화: 날씨 입자·구름·별
+  for (let i = 0; i < 95; i++) {
+    state.rainDrops.push({ x: Math.random(), y: Math.random(), len: 10 + Math.random() * 10, spd: 0.55 + Math.random() * 0.4 });
+    state.snowFlakes.push({ x: Math.random(), y: Math.random(), r: 1.5 + Math.random() * 2.2, spd: 0.08 + Math.random() * 0.1, drift: Math.random() * 6.28 });
+  }
+  for (let i = 0; i < 6; i++) {
+    state.clouds.push({ x: Math.random(), y: 0.05 + Math.random() * 0.16, s: 0.7 + Math.random() * 0.6, spd: 0.004 + Math.random() * 0.004 });
+  }
+  for (let i = 0; i < 42; i++) {
+    state.stars.push({ x: Math.random(), y: 0.02 + Math.random() * 0.30, r: 0.8 + Math.random() * 1.4, tw: Math.random() * 6.28 });
+  }
+
+  // 접기/펼치기 토글
+  function bindToggle(cardId, headId, txtId) {
+    const card = document.getElementById(cardId);
+    const head = document.getElementById(headId);
+    const txt = document.getElementById(txtId);
+    head.addEventListener("click", () => {
+      card.classList.toggle("collapsed");
+      txt.textContent = card.classList.contains("collapsed") ? "펼치기 ▾" : "접기 ▴";
+    });
+  }
+  bindToggle("intro-card", "intro-toggle", "intro-toggle-txt");
+  bindToggle("result-card", "result-toggle", "result-toggle-txt");
+
+  // 숫자 포맷
+  const fmtWon = (n) => Math.round(n).toLocaleString("ko-KR") + "원";
+
+  // 결정적 시드 난수 (날짜별 손님 배치 일관성)
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // 1. 유일한 좌표 변환 함수: (x, y, z) -> 화면 위치
+  let originX = 0, originY = 0, tileW = 24, tileH = 12, unitZ = 14;
+  function updateViewportMetrics() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // 매장이 화면 가로의 약 1/3 안팎, 위성 사진 동네 전체(지하철역·영화관·오피스·앞뒤 도로)가 한눈에 보이도록 스케일 설정
+    const targetCafePx = Math.min(w * 0.31, h * 0.48, 390);
+    tileW = Math.max(15, targetCafePx / 15.0);
+    tileH = tileW * 0.5;
+    unitZ = tileW * 0.62;
+    originX = w * 0.5;
+    originY = h * 0.56;
+  }
+  window.addEventListener("resize", updateViewportMetrics);
+  updateViewportMetrics();
+
+  function iso(x, y, z = 0) {
+    return {
+      x: originX + (x - y) * tileW,
+      y: originY + (x + y) * tileH - z * unitZ,
+    };
+  }
+
+  // 2. 유일한 상자 그리기 함수 (윗면·앞면·옆면 밝기만 달리함)
+  function shadeHex(hex, factor) {
+    const c = parseInt(hex.slice(1), 16);
+    const r = Math.min(255, Math.max(0, Math.round(((c >> 16) & 255) * factor)));
+    const g = Math.min(255, Math.max(0, Math.round(((c >> 8) & 255) * factor)));
+    const b = Math.min(255, Math.max(0, Math.round((c & 255) * factor)));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function drawBox(x, y, z, w, d, h, baseHex, strokeAlpha = 0.08) {
+    const p000 = iso(x, y, z);
+    const p100 = iso(x + w, y, z);
+    const p110 = iso(x + w, y + d, z);
+    const p010 = iso(x, y + d, z);
+    const p001 = iso(x, y, z + h);
+    const p101 = iso(x + w, y, z + h);
+    const p111 = iso(x + w, y + d, z + h);
+    const p011 = iso(x, y + d, z + h);
+
+    // 윗면
+    ctx.beginPath();
+    ctx.moveTo(p001.x, p001.y);
+    ctx.lineTo(p101.x, p101.y);
+    ctx.lineTo(p111.x, p111.y);
+    ctx.lineTo(p011.x, p011.y);
+    ctx.closePath();
+    ctx.fillStyle = shadeHex(baseHex, 1.08);
+    ctx.fill();
+
+    if (h > 0.001) {
+      // 앞면 (+y 쪽)
+      ctx.beginPath();
+      ctx.moveTo(p010.x, p010.y);
+      ctx.lineTo(p110.x, p110.y);
+      ctx.lineTo(p111.x, p111.y);
+      ctx.lineTo(p011.x, p011.y);
+      ctx.closePath();
+      ctx.fillStyle = shadeHex(baseHex, 0.90);
+      ctx.fill();
+
+      // 옆면 (+x 쪽)
+      ctx.beginPath();
+      ctx.moveTo(p100.x, p100.y);
+      ctx.lineTo(p110.x, p110.y);
+      ctx.lineTo(p111.x, p111.y);
+      ctx.lineTo(p101.x, p101.y);
+      ctx.closePath();
+      ctx.fillStyle = shadeHex(baseHex, 0.74);
+      ctx.fill();
+    }
+
+    if (strokeAlpha > 0) {
+      ctx.strokeStyle = `rgba(20, 35, 40, ${strokeAlpha})`;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(p001.x, p001.y);
+      ctx.lineTo(p101.x, p101.y);
+      ctx.lineTo(p111.x, p111.y);
+      ctx.lineTo(p011.x, p011.y);
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+
+  function drawLabel(x, y, z, text, accent = "#0f5c5c") {
+    const p = iso(x, y, z);
+    ctx.font = "700 11px 'Malgun Gothic', sans-serif";
+    const tw = ctx.measureText(text).width;
+    const padX = 6, bh = 18;
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.strokeStyle = "rgba(15,92,92,0.22)";
+    ctx.lineWidth = 1;
+    roundRect(p.x - tw / 2 - padX, p.y - bh / 2, tw + padX * 2, bh, 5);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, p.x, p.y + 0.5);
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  // 데이터 로드
+  async function loadAllData() {
+    const [mRes, pRes] = await Promise.all([
+      fetch("data/manifest.json"),
+      fetch("data/personas_summary.json"),
+    ]);
+    state.manifest = await mRes.json();
+    state.personas = await pRes.json();
+
+    document.getElementById("ui-store-name").textContent = state.manifest.store_name;
+    document.getElementById("ui-reward-formula").textContent = state.manifest.reward_formula;
+
+    const recSelect = document.getElementById("record-select");
+    recSelect.innerHTML = "";
+    for (const rec of state.manifest.records) {
+      const r = await fetch(rec.file);
+      state.replays[rec.key] = await r.json();
+      const opt = document.createElement("option");
+      opt.value = rec.key;
+      opt.textContent = rec.label;
+      recSelect.appendChild(opt);
+    }
+
+    // 판별 기준 평균 이익 계산 (내가 정한 규칙)
+    const baseKey = state.manifest.baseline_key;
+    if (state.replays[baseKey]) {
+      const eps = state.replays[baseKey].episodes;
+      state.baselineMeanProfit = eps.reduce((s, e) => s + e.total_profit, 0) / eps.length;
+    }
+
+    // 기본 선택: 지금 실제 운영 방식(do_nothing) (URL 파라미터가 있으면 해당 시점으로 이동)
+    const params = new URLSearchParams(window.location.search);
+    const qRec = params.get("record");
+    state.currentKey = (qRec && state.replays[qRec])
+      ? qRec
+      : (state.replays["do_nothing"] ? "do_nothing" : state.manifest.records[0].key);
+    recSelect.value = state.currentKey;
+    populateEpisodeDropdown();
+    const qDay = params.get("day");
+    selectDay(qDay !== null ? Number(qDay) : 0, true);
+    const qMin = params.get("min");
+    if (qMin !== null && !Number.isNaN(Number(qMin))) {
+      state.minuteOfDay = Math.max(OPEN_MIN, Math.min(CLOSE_MIN - 1, Number(qMin)));
+    }
+    if (params.get("pause") === "1") {
+      state.playing = false;
+      const playBtn = document.getElementById("btn-play");
+      playBtn.textContent = "▶ 재생";
+      playBtn.classList.remove("active");
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function getCurrentReplay() {
+    return state.replays[state.currentKey];
+  }
+  function getCurrentEpisode() {
+    return getCurrentReplay().episodes[state.currentEpIdx];
+  }
+  function getCurrentDay() {
+    return getCurrentEpisode().days[state.currentDayIdx];
+  }
+
+  function populateEpisodeDropdown() {
+    const epSelect = document.getElementById("episode-select");
+    const replay = getCurrentReplay();
+    epSelect.innerHTML = "";
+    replay.episodes.forEach((ep, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = `${ep.start_date} (시드 ${ep.seed})`;
+      epSelect.appendChild(opt);
+    });
+    state.currentEpIdx = Math.min(state.currentEpIdx, replay.episodes.length - 1);
+    epSelect.value = String(state.currentEpIdx);
+    updateOverallStats();
+    buildDayStrip();
+  }
+
+  function updateOverallStats() {
+    const replay = getCurrentReplay();
+    const eps = replay.episodes;
+    const n = eps.length;
+    const meanProfit = eps.reduce((s, e) => s + e.total_profit, 0) / n;
+    const meanOntime = eps.reduce((s, e) => s + e.avg_ontime_rate, 0) / n;
+    const meanSat = eps.reduce((s, e) => s + e.final_satisfaction, 0) / n;
+    const meanLow = eps.reduce((s, e) => s + e.low_sat_days, 0) / n;
+
+    document.getElementById("ui-overall-profit").textContent = fmtWon(meanProfit);
+    document.getElementById("ui-overall-ontime").textContent = (meanOntime * 100).toFixed(1) + "%";
+    document.getElementById("ui-overall-sat").textContent = meanSat.toFixed(1) + "점";
+    document.getElementById("ui-overall-lowdays").textContent = meanLow.toFixed(2) + "일";
+    document.getElementById("ui-playing-record").textContent = "재생 중 : " + replay.policy_label;
+
+    const baseEl = document.getElementById("ui-base-profit");
+    const diffEl = document.getElementById("ui-base-diff");
+    if (state.baselineMeanProfit !== null) {
+      baseEl.textContent = fmtWon(state.baselineMeanProfit);
+      const diff = meanProfit - state.baselineMeanProfit;
+      const sign = diff > 0 ? "+" : "";
+      diffEl.textContent = `${sign}${fmtWon(diff)}`;
+      diffEl.className = diff > 1 ? "judge-good" : diff < -1 ? "judge-bad" : "judge-eq";
+    } else {
+      baseEl.textContent = "기준 기록 없음";
+      diffEl.textContent = "-";
+      diffEl.className = "";
+    }
+  }
+
+  function buildDayStrip() {
+    const strip = document.getElementById("day-strip");
+    strip.innerHTML = "";
+    const ep = getCurrentEpisode();
+    const cap = state.manifest.capacity_limit;
+    const lowTh = state.manifest.low_sat_threshold;
+    ep.days.forEach((d, idx) => {
+      const cell = document.createElement("div");
+      cell.className = "day-cell" + (idx === state.currentDayIdx ? " current" : "");
+      let bg = "#9bd3a8";
+      if (d.satisfaction_before < lowTh) bg = "#e07a7a";
+      else if (d.weather_score === 1) bg = "#56a8d8";
+      else if (d.total_orders > cap) bg = "#f3b562";
+      cell.style.background = bg;
+      cell.title = `${d.day}일차 ${d.date}(${d.weekday}) | 이익 ${fmtWon(d.daily_profit)} | 주문 ${d.total_orders}잔`;
+      cell.addEventListener("click", () => selectDay(idx, true));
+      strip.appendChild(cell);
+    });
+  }
+
+  function updateEpisodeTodayPanel() {
+    const ep = getCurrentEpisode();
+    const d = getCurrentDay();
+    let cumProfit = 0, cumReward = 0;
+    for (let i = 0; i <= state.currentDayIdx; i++) {
+      cumProfit += ep.days[i].daily_profit;
+      cumReward += ep.days[i].reward;
+    }
+    document.getElementById("ui-date").textContent = `${d.date} (${d.weekday})`;
+    document.getElementById("ui-day-badge").textContent = `${d.day} / ${state.manifest.episode_days}일`;
+    document.getElementById("ui-ep-profit").textContent = fmtWon(cumProfit);
+    document.getElementById("ui-ep-reward").textContent = fmtWon(cumReward);
+    document.getElementById("ui-ep-today").textContent =
+      `할인 ${Math.round(d.discount_rate * 100)}% · ${d.total_orders.toFixed(0)}잔`;
+    document.getElementById("ui-ep-sat").textContent =
+      `${(d.ontime_rate * 100).toFixed(1)}% · ${d.satisfaction_before.toFixed(0)}→${d.satisfaction_after.toFixed(0)}점`;
+
+    const tags = [];
+    if (d.is_weekend) tags.push("주말(+20%)");
+    if (d.is_holiday) tags.push("공휴일(+30%)");
+    if (d.is_busy_cinema) tags.push("영화관 붐빔(+20%)");
+    if (d.satisfaction_before < state.manifest.low_sat_threshold) tags.push("저만족(-20%)");
+    if (tags.length === 0) tags.push("평일");
+    document.getElementById("ui-today-tags").textContent = tags.join(" · ");
+
+    const cells = document.querySelectorAll(".day-cell");
+    cells.forEach((c, idx) => c.classList.toggle("current", idx === state.currentDayIdx));
+  }
+
+  // 페르소나 기반 하루 손님·배달 오토바이 생성
+  function buildDayEntities(day) {
+    const seed = Number(day.date.replace(/-/g, "")) + day.action * 97;
+    const rng = mulberry32(seed);
+    const takeoutTotal = day.normal_takeout_orders + day.discounted_takeout_orders;
+    const deliveryTotal = day.delivery_orders;
+    const isRainy = day.weather_score === 1 && day.snowfall_cm < 0.5;
+    const isSnowy = day.weather_score === 1 && day.snowfall_cm >= 0.5;
+    const isDelayed = day.ontime_rate < 0.90;
+
+    // 화면에 그릴 대표 손님 수 (10~18명, 주문 수에 비례)
+    const numVis = Math.max(9, Math.min(17, Math.round(takeoutTotal / 12)));
+    const discShare = takeoutTotal > 0 ? day.discounted_takeout_orders / takeoutTotal : 0;
+
+    // 페르소나를 섞되 같은 모습이 연달아 서지 않도록 선택
+    const pool = [...state.personas];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const picked = pool.slice(0, numVis);
+
+    // 위성 사진 실제 지형에 맞춘 손님 출발지 및 길 따라 걷는 경유지
+    const origins = [
+      { x: 3.2, y: -7.4, viaX: 4.1, viaY: 0.4, tag: "station" },  // 지하철역 1번 출구 광장 → 가로수 보행로
+      { x: -5.2, y: 2.2, viaX: 1.6, viaY: 3.1, tag: "cinema" },   // 왼쪽 민트지붕 영화관 → 매장 앞 코너
+      { x: 6.4, y: 1.6, viaX: 4.1, viaY: 1.2, tag: "office" },    // 오른쪽 ㄷ자 오피스 → 가로수 보행로
+      { x: 4.4, y: 7.8, viaX: 4.1, viaY: 2.8, tag: "front" },     // 앞쪽 메인 도로 횡단보도 → 보행로
+    ];
+
+    const speechPool = {
+      ok: ["아아 한 잔!", "빨리 나왔네", "포장 좋아요", "출근길 커피"],
+      disc: ["비 오는 날 할인!", "200원 아꼈다", "할인이라 포장!", "우산 쓰고 픽업"],
+      delay: ["줄이 좀 기네", "조금 기다려야지", "손님이 많네"],
+      churn: ["너무 밀리네", "다음에 올게요"],
+    };
+
+    const customers = picked.map((p, i) => {
+      let originIdx = i % origins.length;
+      if (day.is_busy_cinema && p.cinema_visit_sensitivity >= 1.2) originIdx = 1;
+      else if (p.occupation.includes("사무") || p.occupation.includes("관리")) originIdx = 2;
+      else if (p.family_type.includes("자녀")) originIdx = 3;
+      const orig = origins[originIdx];
+
+      // 결과 구분 (옷 색이 아닌 머리 위 점과 말풍선으로 구분)
+      let outcome = "ok"; // green
+      const r = rng();
+      if (day.satisfaction_before < state.manifest.low_sat_threshold && r < 0.16) {
+        outcome = "churn"; // red
+      } else if (isDelayed && r < 0.34) {
+        outcome = "delay"; // orange
+      } else if (day.discount_rate > 0 && r < discShare + 0.15) {
+        outcome = "disc"; // green (할인)
+      }
+
+      const startFrac = (i / numVis) * 0.80 + rng() * 0.05;
+      const durFrac = 0.18 + rng() * 0.08;
+      // 매장 내부 테라조 통로(키오스크·쇼케이스·픽업 카운터 앞)에 손님이 자연스럽게 줄 서도록 배치
+      const slotX = -2.1 + (i % 4) * 0.88 + (rng() - 0.5) * 0.18;
+      const slotY = 0.45 + Math.floor((i % 8) / 4) * 0.90;
+
+      const list = speechPool[outcome];
+      const bubble = list[Math.floor(rng() * list.length)];
+
+      // 옷차림·헤어스타일·소지품 (참고 일러스트 스타일, 페르소나 성별·나이·직업·가족 반영)
+      const isFemale = p.sex === "여자";
+      const isOffice = /사무|관리|개발|프로그래머|분석|비서|교사|약사|간호|회계|디자이너/.test(p.occupation);
+      const isField = /조작|운전|청소|배관|용접|설치|정비|경비|철근|도장|택배/.test(p.occupation);
+      const isStudent = /무직|학생/.test(p.occupation) || p.age <= 24;
+      const isWarmDay = day.temp_max_c >= 20;
+
+      let outfitType;
+      if (isFemale) {
+        const opts = isOffice ? ["coat", "skirt", "dress", "casual"] : ["dress", "skirt", "casual", "coat"];
+        outfitType = opts[(i + p.customer_no) % opts.length];
+      } else {
+        const opts = isOffice
+          ? ["suit", "coat", "casual"]
+          : isWarmDay
+          ? ["casual", "shorts", "casual"]
+          : ["coat", "casual", "casual"];
+        outfitType = opts[(i + p.customer_no) % opts.length];
+      }
+
+      const femaleTops = ["#e08b89", "#d4856a", "#789d8b", "#6e8fb2", "#c8a98a", "#9c85ab", "#e6c9a8", "#5b7e8c"];
+      const maleTops = isOffice
+        ? ["#39536e", "#4b6278", "#5f7182", "#3d5e5e", "#6d5b4e"]
+        : isField
+        ? ["#5c6b73", "#4c6a75", "#7a6655", "#51695b"]
+        : ["#69849e", "#7e9482", "#c98468", "#7c6f8c", "#b59676", "#4f6d82"];
+      const topColor = isFemale
+        ? femaleTops[(i + p.customer_no) % femaleTops.length]
+        : maleTops[(i + p.customer_no) % maleTops.length];
+
+      const bottomPalette = isFemale
+        ? ["#42576b", "#7a8fa3", "#c4948c", "#546b62", "#3b4754", "#b89f86"]
+        : ["#2f3f4f", "#4b5f73", "#5c534a", "#3a4b5c", "#7d6e5d"];
+      const bottomColor = bottomPalette[(i * 3 + p.customer_no) % bottomPalette.length];
+      const coatColor = ["#384d63", "#8c725c", "#5c7370", "#7d5b5b", "#6b7985"][(i + p.customer_no) % 5];
+      const shoeColor = ["#2b3036", "#5c4234", "#46525e", "#d6cfc4"][i % 4];
+      const skinColor = i % 3 === 0 ? "#eec3a4" : "#f4ceb4";
+
+      const hairStylesF = ["long", "ponytail", "bob", "bun"];
+      const hairStylesM = ["short", "wavy", "short"];
+      const hairStyle = isFemale
+        ? hairStylesF[(i + p.customer_no) % hairStylesF.length]
+        : hairStylesM[(i + p.customer_no) % hairStylesM.length];
+      const hairPalette = isFemale
+        ? ["#3c261c", "#573726", "#261d19", "#694530"]
+        : ["#1f2226", "#2d231d", "#3d2f27"];
+      const hair = hairPalette[(i + p.customer_no) % hairPalette.length];
+      const heightScale = isFemale ? 0.94 + (p.customer_no % 3) * 0.02 : 1.0 + (p.customer_no % 3) * 0.025;
+
+      let accessory = "none";
+      if (originIdx === 1 && day.is_busy_cinema === 1) accessory = "popcorn";
+      else if (isOffice && !isFemale) accessory = "briefcase";
+      else if (isStudent || (!isFemale && i % 3 === 0)) accessory = "backpack";
+      else if (isFemale && i % 2 === 0) accessory = "tote";
+      else if (i % 3 === 1) accessory = "phone";
+
+      const hasChild = p.family_type.includes("자녀") && i % 2 === 0;
+      const childColor = ["#e3a078", "#7fb3c8", "#e5989b", "#8ab899"][i % 4];
+
+      return {
+        p, orig, outcome, startFrac, durFrac, slotX, slotY,
+        bubble, outfitType, topColor, bottomColor, coatColor, shoeColor, skinColor,
+        hairStyle, hair, heightScale, accessory, hasChild, childColor,
+        phaseOffset: rng() * Math.PI * 2,
+        hasUmbrella: isRainy || isSnowy,
+        isSnowy,
+        umbrellaColor: ["#2d6a8e", "#c96f5b", "#3f7d6e", "#5b6d8a", "#b88a44", "#7b5e7b"][i % 6],
+      };
+    });
+
+    // 배달 오토바이 (배달 주문 수에 비례해 2~6대 순환)
+    const numBikes = Math.max(2, Math.min(6, Math.round(deliveryTotal / 32)));
+    const bikes = [];
+    for (let b = 0; b < numBikes; b++) {
+      bikes.push({
+        phase: (b / numBikes) + rng() * 0.1,
+        speed: 0.7 + rng() * 0.35,
+        dir: b % 2 === 0 ? 1 : -1,
+      });
+    }
+
+    return { customers, bikes };
+  }
+
+  function selectDay(idx, resetClock = true) {
+    const ep = getCurrentEpisode();
+    state.currentDayIdx = Math.max(0, Math.min(ep.days.length - 1, idx));
+    if (resetClock) state.minuteOfDay = OPEN_MIN;
+    state.dayEntities = buildDayEntities(getCurrentDay());
+    updateEpisodeTodayPanel();
+  }
+
+  // 컨트롤 이벤트
+  document.getElementById("record-select").addEventListener("change", (e) => {
+    state.currentKey = e.target.value;
+    populateEpisodeDropdown();
+    selectDay(0, true);
+  });
+  document.getElementById("episode-select").addEventListener("change", (e) => {
+    state.currentEpIdx = Number(e.target.value);
+    buildDayStrip();
+    selectDay(0, true);
+  });
+  document.getElementById("btn-play").addEventListener("click", (e) => {
+    state.playing = !state.playing;
+    e.target.textContent = state.playing ? "❚❚ 일시정지" : "▶ 재생";
+    e.target.classList.toggle("active", state.playing);
+  });
+  document.getElementById("btn-prev").addEventListener("click", () => {
+    selectDay(state.currentDayIdx - 1, true);
+  });
+  document.getElementById("btn-next").addEventListener("click", () => {
+    selectDay(state.currentDayIdx + 1, true);
+  });
+  document.querySelectorAll("#speed-group button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.speed = Number(btn.dataset.speed);
+      document.querySelectorAll("#speed-group button").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
+
+  // 하늘색 보간 (6절: 아침 연한 주황 -> 한낮 파랑 -> 저녁 노을 -> 밤 남색)
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function lerpRGB(c1, c2, t) {
+    return `rgb(${Math.round(lerp(c1[0], c2[0], t))},${Math.round(lerp(c1[1], c2[1], t))},${Math.round(lerp(c1[2], c2[2], t))})`;
+  }
+  function getSkyPalette(progress, overcast) {
+    // 0.0(07:00) 아침 -> 0.35(12:15) 한낮 -> 0.72(17:48) 노을 -> 1.0(22:00) 밤
+    const stops = [
+      { t: 0.00, top: [152, 188, 224], bot: [248, 206, 168], amb: [255, 195, 140, 0.12], night: 0.05 },
+      { t: 0.25, top: [106, 174, 228], bot: [198, 228, 248], amb: [255, 255, 255, 0.00], night: 0.00 },
+      { t: 0.58, top: [110, 170, 224], bot: [204, 230, 246], amb: [255, 250, 240, 0.02], night: 0.00 },
+      { t: 0.76, top: [122, 128, 178], bot: [242, 166, 142], amb: [245, 150, 120, 0.16], night: 0.22 },
+      { t: 0.90, top: [34, 48, 86],    bot: [76, 86, 130],   amb: [25, 35, 78, 0.34],   night: 0.72 },
+      { t: 1.00, top: [18, 26, 54],    bot: [38, 48, 84],    amb: [15, 22, 55, 0.42],   night: 0.88 },
+    ];
+    let s0 = stops[0], s1 = stops[stops.length - 1];
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (progress >= stops[i].t && progress <= stops[i + 1].t) {
+        s0 = stops[i]; s1 = stops[i + 1]; break;
+      }
+    }
+    const lt = s1.t === s0.t ? 0 : (progress - s0.t) / (s1.t - s0.t);
+    let top = s0.top.map((v, i) => lerp(v, s1.top[i], lt));
+    let bot = s0.bot.map((v, i) => lerp(v, s1.bot[i], lt));
+    if (overcast) {
+      top = top.map((v) => lerp(v, 118, 0.55));
+      bot = bot.map((v) => lerp(v, 156, 0.55));
+    }
+    return {
+      top: `rgb(${Math.round(top[0])},${Math.round(top[1])},${Math.round(top[2])})`,
+      bot: `rgb(${Math.round(bot[0])},${Math.round(bot[1])},${Math.round(bot[2])})`,
+      amb: `rgba(${Math.round(lerp(s0.amb[0], s1.amb[0], lt))},${Math.round(lerp(s0.amb[1], s1.amb[1], lt))},${Math.round(lerp(s0.amb[2], s1.amb[2], lt))},${lerp(s0.amb[3], s1.amb[3], lt).toFixed(3)})`,
+      night: lerp(s0.night, s1.night, lt),
+    };
+  }
+
+  // 돔형 우산 그리기 (비·눈 오는 날, 손에 쥔 우산대·곡선 지붕·살·물결 테두리)
+  function drawCurvedUmbrella(handX, handY, centerX, canopyY, scale, color, dir, isSnowy) {
+    const uw = scale * 0.96;
+    const uh = scale * 0.31;
+    const ux = centerX + dir * scale * 0.03;
+    const tipY = canopyY - uh;
+    const rimY = canopyY;
+
+    ctx.save();
+    // 우산대 (손에서 우산 꼭지까지) + J자 손잡이
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = Math.max(1.2, scale * 0.048);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(handX, handY + scale * 0.05);
+    ctx.lineTo(ux, tipY - scale * 0.06);
+    ctx.stroke();
+
+    // J자 손잡이 고리
+    ctx.beginPath();
+    ctx.arc(handX - dir * scale * 0.03, handY + scale * 0.055, scale * 0.03, 0, Math.PI, false);
+    ctx.stroke();
+
+    // 우산 안쪽 어두운 그림자
+    ctx.fillStyle = shadeHex(color, 0.58);
+    ctx.beginPath();
+    ctx.ellipse(ux, rimY, uw * 0.48, uh * 0.22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 물결 테두리가 있는 돔형 우산 지붕 (3개 곡선 스캘럽)
+    const scallops = 4;
+    const leftX = ux - uw * 0.5;
+    const rightX = ux + uw * 0.5;
+
+    ctx.beginPath();
+    ctx.moveTo(leftX, rimY);
+    ctx.bezierCurveTo(
+      leftX + uw * 0.05, tipY + uh * 0.05,
+      ux - uw * 0.18, tipY,
+      ux, tipY
+    );
+    ctx.bezierCurveTo(
+      ux + uw * 0.18, tipY,
+      rightX - uw * 0.05, tipY + uh * 0.05,
+      rightX, rimY
+    );
+    for (let s = scallops - 1; s >= 0; s--) {
+      const sx1 = leftX + ((s + 1) / scallops) * uw;
+      const sx0 = leftX + (s / scallops) * uw;
+      const smx = (sx0 + sx1) * 0.5;
+      ctx.quadraticCurveTo(smx, rimY - uh * 0.20, sx0, rimY);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // 입체감을 주는 밝은 쪽 패널(왼쪽)과 어두운 쪽 패널(오른쪽)
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = shadeHex(color, 1.16);
+    ctx.beginPath();
+    ctx.moveTo(ux, tipY);
+    ctx.quadraticCurveTo(ux - uw * 0.30, tipY + uh * 0.35, leftX + uw * 0.25, rimY + 2);
+    ctx.lineTo(leftX - 2, rimY + 2);
+    ctx.lineTo(leftX - 2, tipY - 2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = shadeHex(color, 0.84);
+    ctx.beginPath();
+    ctx.moveTo(ux, tipY);
+    ctx.quadraticCurveTo(ux + uw * 0.28, tipY + uh * 0.35, rightX - uw * 0.25, rimY + 2);
+    ctx.lineTo(rightX + 2, rimY + 2);
+    ctx.lineTo(rightX + 2, tipY - 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // 눈 오는 날 우산 위 살짝 쌓인 눈 하이라이트
+    if (isSnowy) {
+      ctx.fillStyle = "rgba(244, 249, 253, 0.78)";
+      ctx.beginPath();
+      ctx.ellipse(ux, tipY + uh * 0.14, uw * 0.34, uh * 0.18, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 우산살 (꼭지에서 각 물결 끝점으로 이어지는 얇은 곡선)
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
+    ctx.lineWidth = 0.85;
+    for (let s = 1; s < scallops; s++) {
+      const rx = leftX + (s / scallops) * uw;
+      ctx.beginPath();
+      ctx.moveTo(ux, tipY);
+      ctx.quadraticCurveTo(lerp(ux, rx, 0.55), tipY + uh * 0.38, rx, rimY);
+      ctx.stroke();
+    }
+
+    // 우산 외곽선 + 꼭지
+    ctx.strokeStyle = "rgba(20, 32, 42, 0.26)";
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(leftX, rimY);
+    ctx.bezierCurveTo(
+      leftX + uw * 0.05, tipY + uh * 0.05,
+      ux - uw * 0.18, tipY,
+      ux, tipY
+    );
+    ctx.bezierCurveTo(
+      ux + uw * 0.18, tipY,
+      rightX - uw * 0.05, tipY + uh * 0.05,
+      rightX, rimY
+    );
+    ctx.stroke();
+
+    ctx.fillStyle = "#334155";
+    ctx.beginPath();
+    ctx.arc(ux, tipY - scale * 0.035, Math.max(1.1, scale * 0.035), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 동반 아이 미니어처 그리기 (가족형 페르소나)
+  function drawChildFigure(cx, cy, H, dir, walkPhase, isWalking, topCol, hairCol, skinCol) {
+    const ch = H * 0.55;
+    const swing = isWalking ? Math.sin(walkPhase + 0.5) : 0;
+    const bob = isWalking ? Math.abs(Math.sin(walkPhase + 0.5)) * ch * 0.03 : 0;
+    const by = cy - bob;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(15, 30, 35, 0.16)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, ch * 0.22, ch * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 두 다리
+    ctx.strokeStyle = "#4b5f73";
+    ctx.lineWidth = Math.max(1.5, ch * 0.11);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(cx - dir * ch * 0.03, by - ch * 0.40);
+    ctx.lineTo(cx - dir * swing * ch * 0.16 - dir * ch * 0.03, by - ch * 0.04);
+    ctx.moveTo(cx + dir * ch * 0.03, by - ch * 0.40);
+    ctx.lineTo(cx + dir * swing * ch * 0.16 + dir * ch * 0.03, by - ch * 0.02);
+    ctx.stroke();
+
+    // 상의
+    ctx.fillStyle = topCol;
+    ctx.beginPath();
+    ctx.moveTo(cx - ch * 0.11, by - ch * 0.70);
+    ctx.lineTo(cx + ch * 0.11, by - ch * 0.70);
+    ctx.lineTo(cx + ch * 0.14, by - ch * 0.36);
+    ctx.lineTo(cx - ch * 0.14, by - ch * 0.36);
+    ctx.closePath();
+    ctx.fill();
+
+    // 머리 & 헤어
+    const hr = ch * 0.13;
+    const hy = by - ch * 0.84;
+    ctx.fillStyle = skinCol;
+    ctx.beginPath();
+    ctx.arc(cx, hy, hr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = hairCol;
+    ctx.beginPath();
+    ctx.arc(cx - dir * hr * 0.12, hy - hr * 0.18, hr * 1.05, Math.PI * 0.92, Math.PI * 2.08);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 사람 미니어처 그리기 (참고 일러스트 스타일: 자연스러운 인체 비율, 옷차림·헤어·소지품·우산)
+  function drawPerson(x, y, z, cfg, nightFactor) {
+    const ps = iso(x, y, z);
+    const H = 1.48 * unitZ * (cfg.heightScale || 1.0);
+    const dir = cfg.facing || 1;
+    const isWalking = Boolean(cfg.isWalking);
+    const phase = cfg.walkPhase || 0;
+    const swing = isWalking ? Math.sin(phase) : 0;
+    const bob = isWalking ? Math.abs(Math.sin(phase)) * H * 0.024 : 0;
+    const px = ps.x;
+    const by = ps.y - bob;
+
+    const skin = cfg.skinColor || "#f3cdb2";
+    const hair = cfg.hair || "#2d231d";
+    const topCol = cfg.isStaff ? "#f4f1ea" : (cfg.topColor || "#5b7a96");
+    const botCol = cfg.bottomColor || "#354656";
+    const coatCol = cfg.coatColor || "#465a6e";
+    const shoeCol = cfg.shoeColor || "#2a2f35";
+    const outfit = cfg.isStaff ? "staff" : (cfg.outfitType || "casual");
+    const showOpenUmbrella = Boolean(cfg.hasUmbrella && !cfg.inStore);
+
+    // 동반 아이 (부모 뒤쪽 손잡기)
+    if (cfg.hasChild && !cfg.isStaff) {
+      const childX = px - dir * H * 0.28;
+      const childY = ps.y + H * 0.03;
+      drawChildFigure(childX, childY, H, dir, phase, isWalking, cfg.childColor || "#e3a078", hair, skin);
+      // 부모 → 아이 손잡는 연결 팔
+      ctx.save();
+      ctx.strokeStyle = outfit === "coat" ? coatCol : topCol;
+      ctx.lineWidth = Math.max(1.6, H * 0.068);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(px - dir * H * 0.06, by - H * 0.70);
+      ctx.lineTo(childX + dir * H * 0.06, childY - H * 0.36);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    // 바닥 그림자
+    ctx.fillStyle = "rgba(15, 30, 35, 0.20)";
+    ctx.beginPath();
+    ctx.ellipse(px, ps.y, H * 0.21, H * 0.075, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 백팩 (몸통 뒤)
+    if (cfg.accessory === "backpack" && !cfg.isStaff) {
+      ctx.fillStyle = shadeHex(botCol, 0.88);
+      roundRect(
+        px - dir * H * 0.14 - (dir < 0 ? 0 : H * 0.04),
+        by - H * 0.73,
+        H * 0.12,
+        H * 0.23,
+        H * 0.04
+      );
+      ctx.fill();
+    }
+
+    // 뒤쪽 팔 (아이 손잡기가 없을 때)
+    const shoulderY = by - H * 0.72;
+    const armW = Math.max(1.6, H * 0.068);
+    if (!cfg.hasChild || cfg.isStaff) {
+      const backHandX = px - dir * H * 0.06 - dir * swing * H * 0.13;
+      const backHandY = by - H * 0.45 + Math.abs(swing) * H * 0.02;
+      ctx.strokeStyle = shadeHex(outfit === "coat" ? coatCol : topCol, 0.88);
+      ctx.lineWidth = armW;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(px - dir * H * 0.05, shoulderY);
+      ctx.lineTo(backHandX, backHandY);
+      ctx.stroke();
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(backHandX, backHandY, armW * 0.52, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 두 다리 (걷는 보폭 + 무릎 굴곡 + 신발)
+    const hipY = by - H * 0.44;
+    const legW = Math.max(1.9, H * 0.082);
+    const bareLowerLeg = outfit === "dress" || outfit === "skirt" || outfit === "shorts";
+    const strideX = swing * H * 0.15;
+
+    const legs = [
+      { fx: px - dir * strideX - dir * H * 0.025, fy: by - H * 0.025, shade: 0.88 },
+      { fx: px + dir * strideX + dir * H * 0.025, fy: by - H * 0.008, shade: 1.0 },
+    ];
+    legs.forEach((lg) => {
+      const hx = px + (lg.fx > px ? H * 0.02 : -H * 0.02);
+      const kx = lerp(hx, lg.fx, 0.52) + dir * (isWalking ? H * 0.025 : 0);
+      const ky = lerp(hipY, lg.fy, 0.50);
+      ctx.strokeStyle = bareLowerLeg ? skin : shadeHex(botCol, lg.shade);
+      ctx.lineWidth = bareLowerLeg ? legW * 0.82 : legW;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(hx, hipY);
+      ctx.lineTo(kx, ky);
+      ctx.lineTo(lg.fx, lg.fy);
+      ctx.stroke();
+
+      // 신발
+      ctx.fillStyle = shoeCol;
+      ctx.beginPath();
+      ctx.ellipse(lg.fx + dir * H * 0.028, lg.fy, H * 0.052, H * 0.024, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 반바지 상단 (shorts일 때)
+    if (outfit === "shorts") {
+      ctx.fillStyle = botCol;
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.095, hipY - H * 0.03);
+      ctx.lineTo(px + H * 0.095, hipY - H * 0.03);
+      ctx.lineTo(px + H * 0.11, hipY + H * 0.13);
+      ctx.lineTo(px - H * 0.11, hipY + H * 0.13);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 몸통 & 옷차림 실루엣
+    const neckY = by - H * 0.76;
+    if (outfit === "dress") {
+      ctx.fillStyle = topCol;
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.09, neckY);
+      ctx.lineTo(px + H * 0.09, neckY);
+      ctx.quadraticCurveTo(px + H * 0.085, by - H * 0.52, px + H * 0.16, by - H * 0.22);
+      ctx.quadraticCurveTo(px, by - H * 0.19, px - H * 0.16, by - H * 0.22);
+      ctx.quadraticCurveTo(px - H * 0.085, by - H * 0.52, px - H * 0.09, neckY);
+      ctx.closePath();
+      ctx.fill();
+    } else if (outfit === "skirt") {
+      // 상의
+      ctx.fillStyle = topCol;
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.095, neckY);
+      ctx.lineTo(px + H * 0.095, neckY);
+      ctx.lineTo(px + H * 0.085, by - H * 0.47);
+      ctx.lineTo(px - H * 0.085, by - H * 0.47);
+      ctx.closePath();
+      ctx.fill();
+      // 플레어 치마
+      ctx.fillStyle = botCol;
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.085, by - H * 0.48);
+      ctx.lineTo(px + H * 0.085, by - H * 0.48);
+      ctx.lineTo(px + H * 0.155, by - H * 0.23);
+      ctx.quadraticCurveTo(px, by - H * 0.20, px - H * 0.155, by - H * 0.23);
+      ctx.closePath();
+      ctx.fill();
+    } else if (outfit === "coat") {
+      // 이너 셔츠
+      ctx.fillStyle = "#f2eee6";
+      ctx.fillRect(px - H * 0.04, neckY, H * 0.08, H * 0.26);
+      // 롱 코트
+      ctx.fillStyle = coatCol;
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.11, neckY);
+      ctx.lineTo(px + H * 0.11, neckY);
+      ctx.lineTo(px + H * 0.135, by - H * 0.27);
+      ctx.lineTo(px - H * 0.135, by - H * 0.27);
+      ctx.closePath();
+      ctx.fill();
+      // 코트 앞 여밈선
+      ctx.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(px + dir * H * 0.02, neckY + H * 0.02);
+      ctx.lineTo(px + dir * H * 0.02, by - H * 0.28);
+      ctx.stroke();
+    } else if (outfit === "staff") {
+      // 바리스타: 흰 셔츠 + 짙은 틸 앞치마
+      ctx.fillStyle = topCol;
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.105, neckY);
+      ctx.lineTo(px + H * 0.105, neckY);
+      ctx.lineTo(px + H * 0.10, by - H * 0.44);
+      ctx.lineTo(px - H * 0.10, by - H * 0.44);
+      ctx.closePath();
+      ctx.fill();
+      // 앞치마
+      ctx.fillStyle = "#0f5c5c";
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.075, neckY + H * 0.06);
+      ctx.lineTo(px + H * 0.075, neckY + H * 0.06);
+      ctx.lineTo(px + H * 0.10, by - H * 0.26);
+      ctx.lineTo(px - H * 0.10, by - H * 0.26);
+      ctx.closePath();
+      ctx.fill();
+      // 앞치마 주머니
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = 0.7;
+      ctx.strokeRect(px - H * 0.05, by - H * 0.43, H * 0.10, H * 0.06);
+    } else {
+      // suit / casual / shorts 상의
+      ctx.fillStyle = topCol;
+      ctx.beginPath();
+      ctx.moveTo(px - H * 0.105, neckY);
+      ctx.lineTo(px + H * 0.105, neckY);
+      ctx.lineTo(px + H * 0.095, by - H * 0.44);
+      ctx.lineTo(px - H * 0.095, by - H * 0.44);
+      ctx.closePath();
+      ctx.fill();
+      if (outfit === "suit") {
+        // 흰 셔츠 V넥 카라
+        ctx.fillStyle = "#f7f5f0";
+        ctx.beginPath();
+        ctx.moveTo(px - H * 0.032, neckY);
+        ctx.lineTo(px + H * 0.032, neckY);
+        ctx.lineTo(px + dir * H * 0.012, neckY + H * 0.10);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // 목 & 뒤쪽 긴머리/포니테일 (머리보다 뒤에 그림)
+    const headR = H * 0.094;
+    const headX = px + dir * H * 0.01;
+    const headY = by - H * 0.87;
+
+    if (cfg.hairStyle === "long") {
+      ctx.fillStyle = hair;
+      ctx.beginPath();
+      ctx.moveTo(headX - headR * 0.95, headY);
+      ctx.quadraticCurveTo(headX - dir * headR * 1.45, headY + H * 0.15, headX - dir * headR * 0.75, by - H * 0.56);
+      ctx.lineTo(headX + dir * headR * 0.45, by - H * 0.60);
+      ctx.lineTo(headX + headR * 0.85, headY);
+      ctx.closePath();
+      ctx.fill();
+    } else if (cfg.hairStyle === "ponytail") {
+      ctx.fillStyle = hair;
+      ctx.beginPath();
+      ctx.moveTo(headX - dir * headR * 0.85, headY - headR * 0.25);
+      ctx.quadraticCurveTo(
+        headX - dir * headR * 2.05, headY + headR * 0.35,
+        headX - dir * headR * 1.45, headY + headR * 1.75
+      );
+      ctx.quadraticCurveTo(
+        headX - dir * headR * 0.95, headY + headR * 1.15,
+        headX - dir * headR * 0.70, headY + headR * 0.25
+      );
+      ctx.closePath();
+      ctx.fill();
+    } else if (cfg.hairStyle === "bun") {
+      ctx.fillStyle = hair;
+      ctx.beginPath();
+      ctx.arc(headX - dir * headR * 0.85, headY - headR * 0.75, headR * 0.52, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 목
+    ctx.fillStyle = skin;
+    ctx.fillRect(px - H * 0.03, neckY - H * 0.04, H * 0.06, H * 0.06);
+
+    // 머리 (자연스러운 작은 비율)
+    ctx.fillStyle = skin;
+    ctx.beginPath();
+    ctx.arc(headX, headY, headR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 앞/윗머리 헤어캡
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    if (cfg.hairStyle === "bob") {
+      ctx.arc(headX - dir * headR * 0.12, headY - headR * 0.12, headR * 1.08, Math.PI * 0.75, Math.PI * 2.12);
+      ctx.lineTo(headX - dir * headR * 0.85, headY + headR * 1.25);
+      ctx.closePath();
+    } else {
+      ctx.arc(headX - dir * headR * 0.12, headY - headR * 0.18, headR * 1.04, Math.PI * 0.88, Math.PI * 2.10);
+      ctx.quadraticCurveTo(headX, headY - headR * 0.25, headX - headR * 0.95, headY - headR * 0.02);
+      ctx.closePath();
+    }
+    ctx.fill();
+
+    // 앞쪽 팔 & 소지품
+    let frontHandX, frontHandY;
+    const armCol = outfit === "coat" ? coatCol : topCol;
+    ctx.strokeStyle = armCol;
+    ctx.lineWidth = armW;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    if (showOpenUmbrella) {
+      // 우산대를 쥐기 위해 앞팔을 앞으로 살짝 들어 올림
+      const elbowX = px + dir * H * 0.08;
+      const elbowY = by - H * 0.60;
+      frontHandX = px + dir * H * 0.14;
+      frontHandY = by - H * 0.69;
+      ctx.beginPath();
+      ctx.moveTo(px + dir * H * 0.05, shoulderY);
+      ctx.lineTo(elbowX, elbowY);
+      ctx.lineTo(frontHandX, frontHandY);
+      ctx.stroke();
+    } else if (cfg.leaving && !cfg.isStaff) {
+      // 매장 나올 때 아이스 아메리카노 컵을 들고 걷기
+      const elbowX = px + dir * H * 0.07;
+      const elbowY = by - H * 0.58;
+      frontHandX = px + dir * H * 0.15;
+      frontHandY = by - H * 0.60;
+      ctx.beginPath();
+      ctx.moveTo(px + dir * H * 0.05, shoulderY);
+      ctx.lineTo(elbowX, elbowY);
+      ctx.lineTo(frontHandX, frontHandY);
+      ctx.stroke();
+
+      // 아이스 아메리카노 컵 + 빨대
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillRect(frontHandX - H * 0.03, frontHandY - H * 0.08, H * 0.065, H * 0.10);
+      ctx.fillStyle = "#5c3a21";
+      ctx.fillRect(frontHandX - H * 0.025, frontHandY - H * 0.045, H * 0.055, H * 0.06);
+      ctx.strokeStyle = "#0f5c5c";
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(frontHandX + H * 0.005, frontHandY - H * 0.08);
+      ctx.lineTo(frontHandX + dir * H * 0.02, frontHandY - H * 0.13);
+      ctx.stroke();
+    } else if (cfg.accessory === "phone" && !cfg.isStaff) {
+      const elbowX = px + dir * H * 0.06;
+      const elbowY = by - H * 0.58;
+      frontHandX = px + dir * H * 0.14;
+      frontHandY = by - H * 0.65;
+      ctx.beginPath();
+      ctx.moveTo(px + dir * H * 0.05, shoulderY);
+      ctx.lineTo(elbowX, elbowY);
+      ctx.lineTo(frontHandX, frontHandY);
+      ctx.stroke();
+      ctx.fillStyle = "#263238";
+      ctx.fillRect(frontHandX - H * 0.015, frontHandY - H * 0.055, H * 0.035, H * 0.065);
+    } else {
+      frontHandX = px + dir * H * 0.06 + dir * swing * H * 0.13;
+      frontHandY = by - H * 0.45 + Math.abs(swing) * H * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(px + dir * H * 0.05, shoulderY);
+      ctx.lineTo(frontHandX, frontHandY);
+      ctx.stroke();
+    }
+
+    // 손
+    ctx.fillStyle = skin;
+    ctx.beginPath();
+    ctx.arc(frontHandX, frontHandY, armW * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 가방·소지품 (서류가방 / 토트백 / 팝콘 / 실내 접은 우산)
+    if (!cfg.isStaff) {
+      if (cfg.accessory === "briefcase" && !showOpenUmbrella && !cfg.leaving) {
+        ctx.fillStyle = "#6e4c36";
+        roundRect(frontHandX - H * 0.08, frontHandY + H * 0.01, H * 0.16, H * 0.11, H * 0.02);
+        ctx.fill();
+      } else if (cfg.accessory === "tote") {
+        // 어깨끈 + 토트백
+        ctx.strokeStyle = "#8c6d53";
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(px + dir * H * 0.04, shoulderY);
+        ctx.lineTo(px + dir * H * 0.09, by - H * 0.46);
+        ctx.stroke();
+        ctx.fillStyle = "#c9a682";
+        roundRect(px + dir * H * 0.03, by - H * 0.48, H * 0.12, H * 0.14, H * 0.025);
+        ctx.fill();
+      } else if (cfg.accessory === "popcorn" && !showOpenUmbrella) {
+        ctx.fillStyle = "#e8c547";
+        ctx.fillRect(px + dir * H * 0.08, by - H * 0.62, H * 0.09, H * 0.12);
+        ctx.fillStyle = "#fff8dc";
+        ctx.beginPath();
+        ctx.arc(px + dir * H * 0.125, by - H * 0.63, H * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 실내에 들어왔을 때는 접은 우산을 손에 들고 있음
+      if (cfg.hasUmbrella && !showOpenUmbrella) {
+        ctx.strokeStyle = cfg.umbrellaColor || "#2d6a8e";
+        ctx.lineWidth = Math.max(1.8, H * 0.065);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(frontHandX, frontHandY);
+        ctx.lineTo(frontHandX + dir * H * 0.03, frontHandY + H * 0.28);
+        ctx.stroke();
+      }
+    }
+
+    // 야외 비·눈 오는 날: 진짜 돔형 우산 펼치기
+    if (showOpenUmbrella) {
+      drawCurvedUmbrella(
+        frontHandX,
+        frontHandY,
+        px,
+        by - H * 1.14,
+        H,
+        cfg.umbrellaColor || "#2d6a8e",
+        dir,
+        Boolean(cfg.isSnowy)
+      );
+    }
+
+    // 머리 위 결과 표시 점 (초록/주황/빨강)
+    if (cfg.outcome) {
+      const dotColor =
+        cfg.outcome === "churn" ? "#c93838" :
+        cfg.outcome === "delay" ? "#d97706" : "#1b8a4b";
+      const dotY = showOpenUmbrella ? (by - H * 1.62) : (by - H * 1.10);
+      ctx.fillStyle = dotColor;
+      ctx.beginPath();
+      ctx.arc(px, dotY, 3.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawScooter(x, y, z, nightFactor) {
+    drawBox(x - 0.45, y - 0.22, z + 0.10, 0.90, 0.44, 0.34, "#3b82f6", 0.08);
+    drawBox(x - 0.42, y - 0.20, z + 0.44, 0.44, 0.40, 0.42, "#0f5c5c", 0.08); // 배달통
+    drawBox(x + 0.08, y - 0.15, z + 0.44, 0.28, 0.30, 0.55, "#334155", 0.06); // 라이더
+    drawBox(x + 0.10, y - 0.13, z + 0.99, 0.24, 0.24, 0.24, "#f59e0b", 0.06); // 헬멧
+    if (nightFactor > 0.35) {
+      const ph = iso(x + 0.48, y, z + 0.30);
+      ctx.fillStyle = `rgba(255, 240, 170, ${nightFactor * 0.55})`;
+      ctx.beginPath();
+      ctx.arc(ph.x, ph.y, 9, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawTree(x, y, snowy) {
+    drawBox(x - 0.14, y - 0.14, 0, 0.28, 0.28, 0.9, "#7c5a3c", 0.05);
+    const leafCol = snowy ? "#dce8ee" : "#5e9c6c";
+    drawBox(x - 0.55, y - 0.55, 0.85, 1.1, 1.1, 0.85, leafCol, 0.05);
+    drawBox(x - 0.38, y - 0.38, 1.65, 0.76, 0.76, 0.55, snowy ? "#eef5f8" : "#70b07e", 0.04);
+  }
+
+  function drawLamp(x, y, nightFactor) {
+    drawBox(x - 0.08, y - 0.08, 0, 0.16, 0.16, 2.2, "#4b5563", 0.04);
+    drawBox(x - 0.18, y - 0.18, 2.15, 0.36, 0.36, 0.18, nightFactor > 0.35 ? "#fde68a" : "#9ca3af", 0.05);
+    if (nightFactor > 0.30) {
+      const p = iso(x, y, 2.15);
+      const grad = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, 38);
+      grad.addColorStop(0, `rgba(255, 232, 150, ${nightFactor * 0.55})`);
+      grad.addColorStop(1, "rgba(255, 232, 150, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 38, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 메인 렌더 함수
+  function render() {
+    if (!state.manifest || !state.dayEntities) return;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const day = getCurrentDay();
+    const progress = Math.max(0, Math.min(1, (state.minuteOfDay - OPEN_MIN) / TOTAL_MIN));
+    const isRainy = day.weather_score === 1 && day.snowfall_cm < 0.5;
+    const isSnowy = day.weather_score === 1 && day.snowfall_cm >= 0.5;
+    const overcast = isRainy || isSnowy;
+    const sky = getSkyPalette(progress, overcast);
+
+    // 시계 & 날씨 카드 실시간 갱신 (1분 단위)
+    const curMin = Math.floor(state.minuteOfDay);
+    const hh = String(Math.floor(curMin / 60)).padStart(2, "0");
+    const mm = String(curMin % 60).padStart(2, "0");
+    document.getElementById("ui-clock").textContent = `${hh}:${mm}`;
+    const curTemp = lerp(day.temp_min_c, day.temp_max_c, Math.sin(progress * Math.PI));
+    const isNightIcon = progress >= 0.80;
+    const wIcon = isSnowy ? "❄️ 눈" : isRainy ? "🌧️ 비" : isNightIcon ? "🌙 맑음" : "☀️ 맑음";
+    document.getElementById("ui-weather").textContent = `${wIcon} · ${curTemp.toFixed(1)}°C`;
+
+    // 1) 하늘 배경
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+    skyGrad.addColorStop(0, sky.top);
+    skyGrad.addColorStop(0.65, sky.bot);
+    skyGrad.addColorStop(1, sky.bot);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 별 (밤 + 맑음)
+    if (!overcast && sky.night > 0.3) {
+      state.stars.forEach((st) => {
+        const alpha = sky.night * (0.5 + 0.5 * Math.sin(st.tw + performance.now() * 0.002));
+        ctx.fillStyle = `rgba(255,255,235,${alpha.toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(st.x * w, st.y * h, st.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // 해와 달 (건물 뒤쪽 하늘)
+    if (!overcast) {
+      if (progress < 0.82) {
+        const sunT = progress / 0.82;
+        const sx = w * (0.18 + sunT * 0.64);
+        const sy = h * (0.28 - Math.sin(sunT * Math.PI) * 0.20);
+        const sg = ctx.createRadialGradient(sx, sy, 4, sx, sy, 34);
+        sg.addColorStop(0, "rgba(255, 246, 195, 0.95)");
+        sg.addColorStop(1, "rgba(255, 220, 140, 0)");
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.arc(sx, sy, 34, 0, Math.PI * 2); ctx.fill();
+      } else {
+        const moonT = (progress - 0.82) / 0.18;
+        const mx = w * (0.68 + moonT * 0.12);
+        const my = h * (0.18 - moonT * 0.05);
+        ctx.fillStyle = "rgba(248, 250, 220, 0.92)";
+        ctx.beginPath(); ctx.arc(mx, my, 13, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // 구름
+    state.clouds.forEach((cl) => {
+      const cx = ((cl.x + performance.now() * 0.00001 * cl.spd * 200) % 1.2 - 0.1) * w;
+      const cy = cl.y * h;
+      ctx.fillStyle = overcast ? "rgba(185, 196, 206, 0.58)" : `rgba(255, 255, 255, ${(0.72 * (1 - sky.night * 0.6)).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 20 * cl.s, 0, Math.PI * 2);
+      ctx.arc(cx + 18 * cl.s, cy - 4 * cl.s, 16 * cl.s, 0, Math.PI * 2);
+      ctx.arc(cx - 16 * cl.s, cy + 2 * cl.s, 14 * cl.s, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 2) 바닥(땅·위성 사진 배치 기준 앞뒤 도로·가로수 보행광장·횡단보도)
+    const groundCol = isSnowy ? "#dde7ee" : "#cfd8ce";
+    drawBox(-27, -24, -0.4, 54, 50, 0.4, groundCol, 0);
+
+    // 뒤쪽 역전 도로 (지하철역 광장과 상가 블록 사이: y = -5.6 ~ -3.4)
+    drawBox(-26, -5.6, 0, 52, 2.2, 0.04, "#5c6670", 0);
+    for (let rx = -24; rx <= 24; rx += 2.6) {
+      drawBox(rx, -4.56, 0.05, 1.3, 0.14, 0.01, "#e5c158", 0);
+    }
+    // 역전 환승 버스 차로 (오른쪽 뒤, 지하철역 바로 앞: x = 4.6 ~ 22, y = -8.4 ~ -5.8)
+    drawBox(4.6, -8.4, 0, 18.0, 2.6, 0.04, "#67727d", 0);
+    for (let bx = 5.4; bx <= 20.0; bx += 2.8) {
+      drawBox(bx, -7.1, 0.05, 1.4, 0.12, 0.01, "#dce3e8", 0);
+    }
+
+    // 앞쪽 메인 도로 (영화관·카페 블록·오피스 앞: y = 6.0 ~ 8.8)
+    drawBox(-26, 6.0, 0, 52, 2.8, 0.04, "#59636e", 0);
+    for (let rx = -24; rx <= 24; rx += 2.6) {
+      drawBox(rx, 7.34, 0.05, 1.3, 0.16, 0.01, "#e5c158", 0);
+    }
+
+    // 영화관 ↔ 카페 블록 사이 보행 골목 (x = -4.6 ~ -3.4, y = -3.4 ~ 6.0)
+    drawBox(-4.6, -3.4, 0, 1.2, 9.4, 0.06, isSnowy ? "#e5edf2" : "#d4d0c7", 0.03);
+    // 카페 블록 ↔ 오른쪽 오피스 사이 넓은 가로수 보행 광장 (x = 3.4 ~ 5.8, y = -3.4 ~ 6.0)
+    drawBox(3.4, -3.4, 0, 2.4, 9.4, 0.08, isSnowy ? "#e6eef3" : "#dbd6cb", 0.04);
+    // 카페 앞 코너 보도 & 상가 앞 인도 (x = -12 ~ 12, y = 2.7 ~ 6.0 / -3.4 ~ -2.6)
+    drawBox(-11.5, -3.4, 0, 24.0, 0.8, 0.07, isSnowy ? "#e6eef3" : "#d8d4ca", 0.03);
+    drawBox(-11.5, 5.2, 0, 24.0, 0.8, 0.07, isSnowy ? "#e6eef3" : "#d8d4ca", 0.03);
+    // 카페 앞 오른쪽 코너 테라스 바닥
+    drawBox(-0.2, 2.6, 0, 3.6, 2.8, 0.08, isSnowy ? "#e6eef3" : "#e3ddd2", 0.04);
+
+    // 횡단보도 1 (지하철 1번 출구 광장 → 가로수 보행 광장)
+    for (let cy = -5.35; cy <= -3.65; cy += 0.45) {
+      drawBox(2.9, cy, 0.05, 1.8, 0.22, 0.01, "#edf1f4", 0);
+    }
+    // 횡단보도 2 (앞쪽 메인 도로, 가로수 보행 광장 연결)
+    for (let cy = 6.25; cy <= 8.45; cy += 0.50) {
+      drawBox(3.6, cy, 0.05, 1.8, 0.24, 0.01, "#edf1f4", 0);
+    }
+    // 횡단보도 3 (앞쪽 메인 도로, 영화관·카페 사이)
+    for (let cy = 6.25; cy <= 8.45; cy += 0.50) {
+      drawBox(-4.8, cy, 0.05, 1.5, 0.24, 0.01, "#edf1f4", 0);
+    }
+
+    // 역 앞 공원 녹지대 (1번 출구 왼쪽: x = -11.5 ~ -1.8, y = -8.6 ~ -5.8)
+    drawBox(-11.5, -8.6, 0.02, 9.7, 2.8, 0.06, isSnowy ? "#d9e6ec" : "#9db897", 0.03);
+    // 1번 출구 연결 넓은 보행 광장 데크 (x = -1.6 ~ 4.4, y = -9.4 ~ -5.6)
+    drawBox(-1.6, -9.4, 0.04, 6.0, 3.8, 0.09, isSnowy ? "#e1eaef" : "#c6ccd0", 0.05);
+
+    // 비 오는 날 물웅덩이
+    if (isRainy) {
+      const puddles = [[4.2, -1.2], [1.4, 3.8], [4.5, 4.2], [-1.5, 6.8], [2.4, -4.4]];
+      puddles.forEach(([px, py]) => {
+        const p = iso(px, py, 0.10);
+        ctx.fillStyle = "rgba(86, 152, 198, 0.42)";
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, tileW * 0.52, tileH * 0.42, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // 3) 뒤쪽 고가 지하철역사 & 1번 출구 & 환승 버스 (위성 사진 상단 대각선)
+    const winLit = sky.night > 0.35;
+    // 고가 교각 기둥
+    for (let px = -12.5; px <= 12.5; px += 3.2) {
+      drawBox(px, -11.4, 0, 0.55, 0.55, 2.0, "#8f9aa3", 0.05);
+      drawBox(px, -9.8, 0, 0.55, 0.55, 2.0, "#8f9aa3", 0.05);
+    }
+    // 고가 선로 데크 & 역사 본체
+    drawBox(-15.5, -13.0, 1.95, 31.0, 3.6, 0.35, "#9aa5ae", 0.06);
+    drawBox(-14.5, -12.8, 2.30, 29.0, 3.2, 1.45, "#b9c4cc", 0.06);
+    // 지붕 채광창 리브 (위성 사진의 격자형 지붕 느낌)
+    drawBox(-14.6, -12.9, 3.75, 29.2, 3.4, 0.22, isSnowy ? "#eef5f8" : "#cfd8df", 0.06);
+    for (let sx = -13.6; sx <= 13.4; sx += 1.5) {
+      drawBox(sx, -12.5, 3.97, 0.85, 2.5, 0.06, isSnowy ? "#dce7ef" : "#8ba1b2", 0.04);
+    }
+    // 노선 색띠 포인트 (위성 사진의 노랑+파랑 노선 건축 띠, 문자/로고 없음)
+    drawBox(-14.5, -9.58, 2.75, 13.0, 0.08, 0.32, "#e8c443", 0);
+    drawBox(-1.5, -9.58, 2.75, 16.0, 0.08, 0.32, "#2f86c7", 0);
+    // 고가 선로 위 전철 (천천히 지나가는 미니 열차)
+    const trainX = ((progress * 18) % 28) - 14;
+    drawBox(trainX, -9.75, 2.32, 3.8, 0.45, 0.65, "#e6edf2", 0.06);
+    drawBox(trainX + 0.15, -9.32, 2.52, 3.5, 0.04, 0.22, winLit ? "#fde68a" : "#4b6982", 0);
+
+    // 지하철역 1번 출구 캐노피 (위성 사진의 타원형·흰 지붕 출구 느낌)
+    drawBox(0.3, -9.3, 0.13, 3.0, 1.8, 1.35, "#d8dfe4", 0.07);
+    drawBox(0.1, -9.4, 1.48, 3.4, 2.0, 0.24, isSnowy ? "#f0f6fa" : "#eef2f5", 0.07);
+    drawBox(0.5, -7.52, 0.22, 2.2, 0.08, 0.95, winLit ? "#fef08a" : "#7fa5bf", 0); // 출구 유리문
+    // 1번 출구 노란 원형 번호 배지 (작은 기호)
+    const exBadge = iso(1.8, -7.45, 1.72);
+    ctx.fillStyle = "#eab308";
+    ctx.beginPath();
+    ctx.arc(exBadge.x, exBadge.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 9px 'Malgun Gothic', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("1", exBadge.x, exBadge.y + 0.5);
+
+    // 환승 차로 버스 정류장 쉘터 & 시내버스 1대
+    drawBox(6.2, -8.2, 0.08, 2.0, 0.65, 1.05, "#8da0ae", 0.06);
+    drawBox(6.0, -8.3, 1.13, 2.4, 0.85, 0.14, isSnowy ? "#eef5f8" : "#0f5c5c", 0.05);
+    // 시내버스
+    drawBox(6.6, -7.0, 0.10, 2.5, 0.95, 0.95, "#3b82a6", 0.07);
+    drawBox(6.75, -6.04, 0.50, 2.1, 0.04, 0.34, winLit ? "#fef08a" : "#cce0ec", 0);
+
+    // 4) 왼쪽 영화관 (위성 사진의 민트색 옥상 + 대형 상업 건물, 매장 왼쪽 골목 건너편)
+    drawBox(-10.0, -2.5, 0, 5.2, 5.4, 3.15, "#b7bec4", 0.08);
+    // 민트색 평옥상 & 흰 테두리 난간 (위성 사진의 시그니처 녹색 지붕)
+    drawBox(-10.1, -2.6, 3.15, 5.4, 5.6, 0.18, isSnowy ? "#dcebe4" : "#80b899", 0.07);
+    drawBox(-9.5, -2.0, 3.33, 1.4, 1.2, 0.42, "#9ca8b0", 0.06); // 옥상 공조기 1
+    drawBox(-7.4, -1.6, 3.33, 1.1, 1.0, 0.32, "#aeb8bf", 0.06); // 옥상 공조기 2
+    // 영화관 창문 띠 (+y 앞면, +x 골목면)
+    for (let wz = 0.7; wz <= 2.3; wz += 0.95) {
+      for (let wx = -9.4; wx <= -5.6; wx += 1.2) {
+        drawBox(wx, 2.88, wz, 0.75, 0.06, 0.55, winLit ? "#fde68a" : "#8eb1c7", 0);
+      }
+      for (let wy = -1.8; wy <= 1.8; wy += 1.3) {
+        drawBox(-4.82, wy, wz, 0.06, 0.80, 0.55, winLit ? "#fde68a" : "#8eb1c7", 0);
+      }
+    }
+
+    // 5) 가운데 우리 카페 (지붕 제거, 실제 매장 사진 3장 기반 내부 구조·기기·좌석 배치)
+    // 매장 기본 바닥 슬래브 (-3.4 ~ 3.4, -2.8 ~ 2.8)
+    drawBox(-3.4, -2.8, 0, 6.8, 5.6, 0.22, "#464d54", 0.08);
+    // 구역 1: 바/제조 바닥 (뒤쪽 왼쪽, 밝은 작업 타일)
+    drawBox(-3.1, -2.5, 0.22, 4.0, 1.8, 0.04, "#d8d3c9", 0.05);
+    // 구역 2: 고객 통로 & 좌석 바닥 (사진 속 짙은 회색 테라조 타일)
+    drawBox(-3.1, -0.7, 0.22, 6.2, 3.2, 0.04, "#6f777f", 0.05);
+    drawBox(0.9, -2.5, 0.22, 2.2, 1.8, 0.04, "#6a727a", 0.05);
+    // 구역 3: 배달 픽업 대기 구역 (오른쪽 앞, 연한 틸 매트 포인트)
+    drawBox(1.3, 1.1, 0.22, 1.8, 1.4, 0.05, "#8db3b0", 0.05);
+
+    // 뒷벽 (왼쪽 노란 바 벽면 + 오른쪽 딥틸 좌석 벽면 — 사진 1·2·3 색감 반영)
+    drawBox(-3.2, -2.6, 0.22, 4.1, 0.26, 3.30, "#e5b52a", 0.08); // 노란 바 뒷벽
+    drawBox(-3.1, -2.36, 0.95, 3.9, 0.04, 0.72, "#f0c744", 0.04); // 노란 서브웨이 타일 구간
+    drawBox(0.9, -2.6, 0.22, 2.3, 0.26, 3.30, "#2d4c56", 0.08);  // 딥틸 좌석 구역 뒷벽
+    // 왼쪽 벽 (짙은 차콜 하단 + 딥틸 상단, 전면 유리창쪽 개방)
+    drawBox(-3.2, -2.6, 0.22, 0.26, 5.2, 1.15, "#3d464f", 0.08);
+    drawBox(-3.2, -2.6, 1.37, 0.26, 5.2, 2.15, "#2f4b54", 0.08);
+    // 바 구역과 좌석 구역을 나누는 딥틸 기둥 파티션 (사진 1·3의 좌측 기둥)
+    drawBox(0.75, -2.55, 0.22, 0.26, 1.35, 2.95, "#2b4750", 0.07);
+    // 기둥 벽 4분할 액자 게시판 (사진 3 왼쪽 벽 디테일)
+    drawBox(1.01, -2.25, 1.45, 0.04, 0.78, 0.88, "#8fa1ab", 0.04);
+    drawBox(1.04, -2.18, 1.92, 0.03, 0.28, 0.34, "#f7f9fa", 0);
+    drawBox(1.04, -1.82, 1.92, 0.03, 0.28, 0.34, "#f7f9fa", 0);
+    drawBox(1.04, -2.18, 1.52, 0.03, 0.28, 0.34, "#f7f9fa", 0);
+    drawBox(1.04, -1.82, 1.52, 0.03, 0.28, 0.34, "#f7f9fa", 0);
+
+    // 딥틸 좌석 뒷벽 원형 조명 엠블럼 (사진 3 중앙 조명 원 — 실제 로고 없이 일반 커피 링 표현)
+    const embPos = iso(2.05, -2.32, 2.08);
+    ctx.save();
+    ctx.fillStyle = "rgba(255, 236, 170, 0.25)";
+    ctx.beginPath();
+    ctx.arc(embPos.x, embPos.y, tileW * 0.44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#22292f";
+    ctx.beginPath();
+    ctx.arc(embPos.x, embPos.y, tileW * 0.30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#f2c94c";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(embPos.x, embPos.y, tileW * 0.22, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // 벽에 붙은 간판 (매장 이름 — 뒷벽 최상단에 선명하게 부착)
+    drawBox(-2.95, -2.34, 2.82, 5.9, 0.14, 0.64, winLit ? "#157a7a" : "#0f5c5c", 0.1);
+    const signPos = iso(0.0, -2.18, 3.14);
+    ctx.save();
+    ctx.translate(signPos.x, signPos.y);
+    ctx.transform(1, tileH / tileW, 0, 1, 0, 0);
+    ctx.font = "800 10px 'Malgun Gothic', sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(state.manifest.store_name, 0, 0);
+    ctx.restore();
+
+    // 상단 3분할 디지털 메뉴판 (사진 2의 카운터 위 3개 모니터)
+    drawBox(-2.65, -2.26, 2.02, 0.96, 0.12, 0.56, "#252b30", 0.06);
+    drawBox(-2.60, -2.15, 2.07, 0.86, 0.04, 0.46, "#b84b4b", 0); // 왼쪽 시즌 메뉴 화면
+    drawBox(-1.60, -2.26, 2.02, 0.96, 0.12, 0.56, "#252b30", 0.06);
+    drawBox(-1.55, -2.15, 2.07, 0.86, 0.04, 0.46, "#c9e2e6", 0); // 가운데 음료 메뉴 화면
+    drawBox(-0.55, -2.26, 2.02, 0.96, 0.12, 0.56, "#252b30", 0.06);
+    drawBox(-0.50, -2.15, 2.07, 0.86, 0.04, 0.46, "#d7e8ec", 0); // 오른쪽 메뉴 화면
+
+    // 바 뒷선반 기기들 (사진 2 뒤쪽: 시럽 선반, 스테인리스 제빙기, 흰 우유 냉장고, 쌓인 노란/투명 컵)
+    drawBox(-2.85, -2.32, 0.26, 2.15, 0.48, 0.82, "#b5bdc4", 0.06); // 뒤 작업대
+    // 시럽 병들 (작은 컬러 포인트)
+    drawBox(-2.30, -2.18, 1.08, 0.14, 0.14, 0.28, "#8c4a2f", 0);
+    drawBox(-2.08, -2.18, 1.08, 0.14, 0.14, 0.28, "#d49a3a", 0);
+    drawBox(-1.86, -2.18, 1.08, 0.14, 0.14, 0.28, "#4b7b5e", 0);
+    // 스테인리스 제빙기 & 흰색 냉장고 (사진 2 오른쪽 뒤)
+    drawBox(-0.62, -2.32, 0.26, 0.65, 0.52, 1.28, "#9ba5ae", 0.07); // 제빙기
+    drawBox(0.08, -2.32, 0.26, 0.58, 0.50, 1.22, "#edf2f5", 0.07);  // 흰색 냉장고
+    drawBox(0.18, -2.20, 1.48, 0.16, 0.16, 0.34, "#f0c83b", 0.04);  // 쌓인 노란 컵
+    drawBox(0.40, -2.20, 1.48, 0.16, 0.16, 0.30, "#dce5eb", 0.04);  // 쌓인 투명 컵
+
+    // 비 오는 날 할인 배너 (매장 왼쪽 벽 부착)
+    const discPct = Math.round(day.discount_rate * 100);
+    const bannerCol = discPct === 10 ? "#1b8a4b" : discPct === 5 ? "#d97706" : "#64748b";
+    drawBox(-3.16, 0.55, 1.50, 0.14, 1.75, 0.78, bannerCol, 0.08);
+    drawLabel(-3.0, 1.42, 2.52, day.weather_score === 1 ? `비 할인 ${discPct}%` : "정상가 0%", bannerCol);
+
+    // 바리스타 (앞치마 착용, 카운터 뒤 작업 공간 — 카운터보다 먼저 그려 자연스럽게 뒤에 위치)
+    drawPerson(-1.45, -1.68, 0.26, {
+      isStaff: true, hairStyle: "short", hair: "#2b211c",
+      skinColor: "#f0c8a8", bottomColor: "#2b3440", shoeColor: "#1f2933",
+      heightScale: 1.0, facing: 1, isWalking: false, inStore: true,
+    }, sky.night);
+    drawPerson(-0.15, -1.68, 0.26, {
+      isStaff: true, hairStyle: "ponytail", hair: "#3d2b22",
+      skinColor: "#f4ceb4", bottomColor: "#2b3440", shoeColor: "#1f2933",
+      heightScale: 0.96, facing: -1, isWalking: false, inStore: true,
+    }, sky.night);
+
+    // 짙은 차콜 하부장 + 스테인리스 상판 메인 카운터 (사진 1·2의 일자형 바)
+    drawBox(-2.90, -1.22, 0.26, 3.62, 0.72, 0.92, "#394148", 0.08); // 차콜 카운터 하부
+    drawBox(-2.92, -1.24, 1.18, 3.66, 0.76, 0.08, "#c9d2d9", 0.06); // 스테인리스 상판
+
+    // 카운터 위 실제 기기들 (사진 2 왼쪽 → 오른쪽 순서)
+    // 1) 화이트 스탠딩 키오스크 (카운터 맨 왼쪽 끝)
+    drawBox(-2.92, -0.98, 0.26, 0.42, 0.44, 1.38, "#eef2f5", 0.07);
+    drawBox(-2.88, -0.55, 0.88, 0.34, 0.05, 0.62, "#243038", 0); // 키오스크 화면
+    drawBox(-2.84, -0.52, 0.94, 0.26, 0.03, 0.48, "#6cb2d1", 0); // 화면 발광
+    // 2) 포스기 (키오스크 바로 옆)
+    drawBox(-2.40, -1.04, 1.26, 0.34, 0.24, 0.34, "#242a30", 0.05);
+    // 3) 유리 디저트 쇼케이스 (가운데 왼쪽 — 투명 유리 + 작은 디저트)
+    drawBox(-1.98, -1.16, 1.26, 0.76, 0.56, 0.54, "#2d353c", 0.07);
+    drawBox(-1.93, -0.62, 1.32, 0.66, 0.06, 0.42, "#b9d7e3", 0.04); // 유리창
+    drawBox(-1.84, -0.96, 1.36, 0.20, 0.20, 0.12, "#f2d68a", 0);    // 디저트 1
+    drawBox(-1.52, -0.96, 1.36, 0.20, 0.20, 0.12, "#e8989a", 0);    // 디저트 2
+    // 4) 커피 그라인더 (흰 몸체 + 원두 호퍼, 사진 1·2 중앙)
+    drawBox(-1.05, -1.08, 1.26, 0.28, 0.28, 0.34, "#f0f3f5", 0.05);
+    drawBox(-1.02, -1.05, 1.60, 0.22, 0.22, 0.22, "#4a3324", 0.05); // 원두 호퍼
+    // 5) 시그니처 노란색 에스프레소 머신 (사진 1·2 오른쪽 끝)
+    drawBox(-0.62, -1.14, 1.26, 1.18, 0.52, 0.46, "#efc21c", 0.08);
+    drawBox(-0.56, -0.64, 1.34, 1.06, 0.06, 0.26, "#2c333a", 0);    // 추출부
+    drawBox(-0.52, -1.04, 1.72, 0.95, 0.30, 0.10, "#f5f7f9", 0.04); // 머신 위 흰 머그컵들
+    // 카운터 앞 작은 미니 메뉴 스탠드 줄 (사진 2 앞쪽 컬러 카드들)
+    ["#e07a5f", "#f2cc8f", "#81b29a", "#6e9bc4", "#e5989b"].forEach((mc, mi) => {
+      drawBox(-0.75 + mi * 0.28, -0.52, 1.26, 0.20, 0.06, 0.24, mc, 0.03);
+    });
+
+    // 좌석 구역 가구 (사진 1·3: 딥틸 벽 긴 차콜 벤치 + 원목 테이블 + 노랑/차콜 의자)
+    // 뒷벽 긴 벤치 소파
+    drawBox(1.10, -2.30, 0.26, 1.95, 0.48, 0.40, "#464d54", 0.06);
+    drawBox(1.10, -2.32, 0.66, 1.95, 0.14, 0.42, "#3a4047", 0.06);
+    // 원목 테이블 3개 + 노랑/차콜 의자 (사진 3 배치)
+    [
+      { tx: 1.25, ty: -1.65, chairs: [{ cx: 1.35, cy: -1.12, col: "#e8cf68" }] },
+      { tx: 2.25, ty: -1.65, chairs: [{ cx: 2.35, cy: -1.12, col: "#4c545d" }] },
+      { tx: 1.75, ty: -0.35, chairs: [
+        { cx: 1.50, cy: -0.72, col: "#4c545d" },
+        { cx: 2.05, cy: -0.72, col: "#4c545d" },
+        { cx: 1.50, cy: 0.20, col: "#e8cf68" },
+        { cx: 2.05, cy: 0.20, col: "#e8cf68" },
+      ] },
+    ].forEach((tb) => {
+      // 테이블 다리 & 따뜻한 원목 상판
+      drawBox(tb.tx + 0.26, tb.ty + 0.18, 0.26, 0.14, 0.14, 0.52, "#2a3036", 0.04);
+      drawBox(tb.tx, tb.ty, 0.78, 0.72, 0.50, 0.08, "#cf9654", 0.06);
+      tb.chairs.forEach((ch) => {
+        drawBox(ch.cx, ch.cy, 0.26, 0.28, 0.28, 0.34, ch.col, 0.05);
+        drawBox(ch.cx, ch.cy + 0.20, 0.60, 0.28, 0.08, 0.26, ch.col, 0.05);
+      });
+    });
+
+    // 배달 픽업 선반 (오른쪽 앞, 배달 구역)
+    drawBox(1.95, 1.35, 0.26, 0.95, 0.50, 0.80, "#5e7f7e", 0.08);
+    drawBox(2.08, 1.45, 1.06, 0.22, 0.22, 0.24, "#d9c2a3", 0.05); // 배달 종이백
+
+    // 전면 통유리창 느낌의 얇은 블랙 프레임 기둥 (사진 1 오른쪽 통창 — 내부를 가리지 않게 낮고 얇게)
+    drawBox(3.04, -2.55, 0.22, 0.16, 0.16, 1.15, "#2b3238", 0.06);
+    drawBox(3.04, -0.60, 0.22, 0.16, 0.16, 1.15, "#2b3238", 0.06);
+    drawBox(3.04, 2.35, 0.22, 0.16, 0.16, 1.15, "#2b3238", 0.06);
+
+    // 처리량 표시 막대 (진열/처리량 = 현재 주문 / 265잔)
+    const cap = state.manifest.capacity_limit;
+    const shownOrders = Math.round(day.total_orders * Math.min(1, progress * 1.08));
+    const ratio = Math.min(1.4, shownOrders / cap);
+    const barCol = shownOrders > cap ? "#c93838" : shownOrders > cap * 0.85 ? "#d97706" : "#1b8a4b";
+    drawBox(-2.85, -0.50, 1.24, 3.5 * Math.min(1, ratio), 0.10, 0.12, barCol, 0);
+
+    // 6) 앞쪽 건물(주황 지붕 인근 상가·오른쪽 ㄷ자 오피스)·움직이는 객체들을 깊이(x+y) 순으로 정렬해 그리기
+    const renderList = [];
+
+    // 위성 사진의 주황/테라코타 지붕 인근 상가 (우리 카페 앞왼쪽, 낮게 그려 매장 내부를 가리지 않음)
+    renderList.push({
+      depth: -1.8 + 4.2,
+      draw: () => {
+        drawBox(-3.3, 3.25, 0, 3.0, 1.9, 1.15, "#dcd2c4", 0.07);
+        drawBox(-3.4, 3.15, 1.15, 3.2, 2.1, 0.24, isSnowy ? "#ebd5c8" : "#d97b49", 0.07); // 시그니처 주황 지붕
+        drawBox(-2.7, 3.65, 1.39, 1.6, 0.9, 0.14, isSnowy ? "#f1e3da" : "#c86c3d", 0.05);
+        drawBox(-2.9, 5.13, 0.25, 0.9, 0.06, 0.60, winLit ? "#fde68a" : "#98b5c4", 0);
+        drawBox(-1.6, 5.13, 0.25, 0.9, 0.06, 0.60, winLit ? "#fde68a" : "#98b5c4", 0);
+      },
+    });
+
+    // 위성 사진의 오른쪽 ㄷ자 중정형 오피스/복합상가 (뒤→중정→앞날개 깊이 순서대로 그림)
+    renderList.push({
+      depth: 8.6 + 1.4,
+      draw: () => {
+        // 뒷날개 & 왼쪽 날개
+        drawBox(6.2, -2.0, 0, 5.2, 1.8, 3.3, "#c4cbd1", 0.08);
+        drawBox(6.2, -0.2, 0, 1.8, 4.4, 3.3, "#bcc4cb", 0.08);
+        drawBox(6.1, -2.1, 3.3, 5.4, 2.0, 0.18, isSnowy ? "#eef5f8" : "#9ba6af", 0.06);
+        drawBox(6.1, -0.1, 3.3, 2.0, 4.4, 0.18, isSnowy ? "#eef5f8" : "#9ba6af", 0.06);
+        // 가운데 중정 + 파란 유리 아트리움 지붕 (앞쪽 오른쪽 날개보다 먼저 그림)
+        drawBox(8.0, -0.2, 0, 1.6, 3.6, 2.1, "#9aa9b6", 0.06);
+        drawBox(7.95, -0.25, 2.1, 1.7, 3.7, 0.18, isSnowy ? "#c8dce8" : "#5c8eb5", 0.06);
+        // 오른쪽 앞날개
+        drawBox(9.6, -0.2, 0, 1.8, 4.4, 3.3, "#b5bec6", 0.08);
+        drawBox(9.5, -0.1, 3.3, 2.0, 4.4, 0.18, isSnowy ? "#eef5f8" : "#9ba6af", 0.06);
+        // 오피스 창문
+        for (let wz = 0.75; wz <= 2.45; wz += 0.85) {
+          for (let wy = -1.2; wy <= 3.1; wy += 1.1) {
+            drawBox(6.16, wy, wz, 0.06, 0.65, 0.48, winLit ? "#fde68a" : "#8fb0c4", 0);
+          }
+          for (let wx = 6.5; wx <= 10.4; wx += 1.3) {
+            drawBox(wx, 4.18, wz, 0.75, 0.06, 0.48, winLit ? "#fde68a" : "#8fb0c4", 0);
+          }
+        }
+      },
+    });
+
+    // 가로수 & 가로등 (위성 사진의 역 앞 공원, 보행 광장 양쪽, 앞 도로변)
+    [
+      [-7.2, -6.8], [-3.8, -6.8],           // 역 앞 공원 녹지대
+      [3.9, -2.4], [5.4, -1.6],             // 보행 광장 위쪽 가로수
+      [5.4, 2.2], [5.4, 4.6],               // 오피스 앞 가로수
+      [-6.8, 4.6], [-9.2, 4.6],             // 영화관 앞 가로수
+    ].forEach(([tx, ty]) => {
+      renderList.push({ depth: tx + ty, draw: () => drawTree(tx, ty, isSnowy) });
+    });
+    [[3.6, 5.2], [-3.6, 5.2], [3.6, -3.1]].forEach(([lx, ly]) => {
+      renderList.push({ depth: lx + ly, draw: () => drawLamp(lx, ly, sky.night) });
+    });
+
+    // 손님 동선 계산 (위성 사진의 실제 보행로 경유) 및 말풍선 수집 (최대 7개, 겹치면 생략)
+    const bubbles = [];
+    const walkClock = performance.now() * 0.0085;
+    state.dayEntities.customers.forEach((c) => {
+      const localT = (progress - c.startFrac) / c.durFrac;
+      if (localT < 0 || localT > 1) return;
+      let cx, cy, vx = 0, vy = 0, isWalking = false, leaving = false;
+      if (localT < 0.20) {
+        const u = localT / 0.20;
+        cx = lerp(c.orig.x, c.orig.viaX, u);
+        cy = lerp(c.orig.y, c.orig.viaY, u);
+        vx = c.orig.viaX - c.orig.x;
+        vy = c.orig.viaY - c.orig.y;
+        isWalking = true;
+      } else if (localT < 0.36) {
+        const u = (localT - 0.20) / 0.16;
+        cx = lerp(c.orig.viaX, c.slotX, u);
+        cy = lerp(c.orig.viaY, c.slotY, u);
+        vx = c.slotX - c.orig.viaX;
+        vy = c.slotY - c.orig.viaY;
+        isWalking = true;
+      } else if (localT < 0.68) {
+        cx = c.slotX;
+        cy = c.slotY;
+        vx = -1;
+        vy = 1;
+      } else if (localT < 0.82) {
+        const u = (localT - 0.68) / 0.14;
+        cx = lerp(c.slotX, c.orig.viaX, u);
+        cy = lerp(c.slotY, c.orig.viaY, u);
+        vx = c.orig.viaX - c.slotX;
+        vy = c.orig.viaY - c.slotY;
+        isWalking = true;
+        leaving = true;
+      } else {
+        const u = (localT - 0.82) / 0.18;
+        cx = lerp(c.orig.viaX, c.orig.x, u);
+        cy = lerp(c.orig.viaY, c.orig.y, u);
+        vx = c.orig.x - c.orig.viaX;
+        vy = c.orig.y - c.orig.viaY;
+        isWalking = true;
+        leaving = true;
+      }
+      const facing = (vx - vy) >= 0 ? 1 : -1;
+      const inStore = cx > -3.1 && cx < 3.0 && cy > -2.4 && cy < 2.5;
+      const cz = inStore ? 0.26 : 0.08;
+      const drawCfg = {
+        ...c,
+        facing,
+        isWalking,
+        leaving,
+        inStore,
+        walkPhase: walkClock + c.phaseOffset,
+      };
+      renderList.push({
+        depth: cx + cy,
+        draw: () => drawPerson(cx, cy, cz, drawCfg, sky.night),
+      });
+      if (localT > 0.25 && localT < 0.78) {
+        const openUmb = c.hasUmbrella && !inStore;
+        const bp = iso(cx, cy, cz + (openUmb ? 2.65 : 1.95));
+        bubbles.push({ x: bp.x, y: bp.y, text: c.bubble, outcome: c.outcome });
+      }
+    });
+
+    // 배달 오토바이 (앞쪽 메인 도로 & 뒤쪽 역전 도로 순환)
+    state.dayEntities.bikes.forEach((bk, idx) => {
+      const t = (progress * bk.speed * 3.0 + bk.phase) % 1;
+      const onBackRoad = idx % 3 === 0;
+      const bx = bk.dir > 0 ? lerp(-15, 15, t) : lerp(15, -15, t);
+      const by = onBackRoad
+        ? (bk.dir > 0 ? -5.0 : -4.0)
+        : (bk.dir > 0 ? 6.7 : 8.1);
+      renderList.push({
+        depth: bx + by,
+        draw: () => drawScooter(bx, by, 0.05, sky.night),
+      });
+    });
+
+    renderList.sort((a, b) => a.depth - b.depth);
+    renderList.forEach((item) => item.draw());
+
+    // 건물 일반 이름표 & 매장 상태 라벨 (카드와 겹치지 않는 위치에 배치)
+    drawLabel(-3.8, -11.2, 4.7, "지하철역");
+    drawLabel(1.4, -8.4, 2.4, "지하철역 1번 출구");
+    drawLabel(-7.4, 0.2, 3.9, day.is_busy_cinema ? "영화관 (붐빔)" : "영화관", day.is_busy_cinema ? "#d97706" : "#0f5c5c");
+    drawLabel(8.6, 1.5, 4.1, "오피스");
+    const capText = `처리량 ${shownOrders} / ${cap}잔`;
+    const delText = `배달 ${Math.round(day.delivery_orders)}잔`;
+    drawLabel(-1.05, -1.15, 2.30, capText, barCol);
+    drawLabel(2.35, 1.75, 1.55, delText, "#0f5c5c");
+
+    // 6) 말풍선 (최대 7개, 겹치면 생략 — 처리량·배달 라벨도 겹치지 않도록 선등록)
+    const placed = [];
+    ctx.font = "700 11px 'Malgun Gothic', sans-serif";
+    [
+      { p: iso(-1.05, -1.15, 2.30), t: capText },
+      { p: iso(2.35, 1.75, 1.55), t: delText },
+    ].forEach(({ p, t }) => {
+      const lw = ctx.measureText(t).width + 12;
+      placed.push({ x: p.x - lw / 2, y: p.y - 9, w: lw, h: 18 });
+    });
+    const fixedLabelCount = placed.length;
+    ctx.font = "600 11px 'Malgun Gothic', sans-serif";
+    for (const b of bubbles) {
+      if (placed.length - fixedLabelCount >= 7) break;
+      const bw = ctx.measureText(b.text).width + 14;
+      const bh = 20;
+      const bx = b.x - bw / 2;
+      const by = b.y - bh;
+      const overlap = placed.some(
+        (p) => !(bx + bw + 4 < p.x || bx > p.x + p.w + 4 || by + bh + 4 < p.y || by > p.y + p.h + 4)
+      );
+      if (overlap) continue;
+      placed.push({ x: bx, y: by, w: bw, h: bh });
+      const borderCol =
+        b.outcome === "churn" ? "#c93838" :
+        b.outcome === "delay" ? "#d97706" : "#1b8a4b";
+      ctx.fillStyle = "rgba(255,255,255,0.94)";
+      ctx.strokeStyle = borderCol;
+      ctx.lineWidth = 1.2;
+      roundRect(bx, by, bw, bh, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#1f2933";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(b.text, b.x, by + bh / 2 + 0.5);
+    }
+
+    // 7) 장면 전체 시간대 빛 색 & 밤 어둠 덮개
+    ctx.fillStyle = sky.amb;
+    ctx.fillRect(0, 0, w, h);
+
+    // 8) 비·눈 입자 효과
+    const nowSec = performance.now() * 0.001;
+    if (isRainy) {
+      ctx.strokeStyle = "rgba(180, 215, 240, 0.65)";
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      state.rainDrops.forEach((d) => {
+        const rx = ((d.x - nowSec * 0.12 * d.spd) % 1 + 1) % 1 * w;
+        const ry = ((d.y + nowSec * d.spd) % 1) * h;
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx - 3, ry + d.len);
+      });
+      ctx.stroke();
+    } else if (isSnowy) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      state.snowFlakes.forEach((f) => {
+        const fx = ((f.x + Math.sin(nowSec + f.drift) * 0.02) % 1 + 1) % 1 * w;
+        const fy = ((f.y + nowSec * f.spd) % 1) * h;
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
+
+  function loop(ts) {
+    if (!state.lastFrameTs) state.lastFrameTs = ts;
+    const dtSec = Math.min(0.1, (ts - state.lastFrameTs) / 1000);
+    state.lastFrameTs = ts;
+
+    if (state.playing && state.manifest) {
+      // 1배속 = 1초에 매장 시각 1분, 60배속 = 1초에 60분(하루 15시간 = 15초)
+      state.minuteOfDay += dtSec * state.speed;
+      if (state.minuteOfDay >= CLOSE_MIN) {
+        const ep = getCurrentEpisode();
+        if (state.currentDayIdx + 1 < ep.days.length) {
+          selectDay(state.currentDayIdx + 1, true);
+        } else {
+          selectDay(0, true);
+        }
+      }
+    }
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  loadAllData().catch((err) => {
+    console.error("재생 데이터 불러오기 실패:", err);
+    document.getElementById("ui-playing-record").textContent =
+      "오류: 로컬 웹 서버로 열어 주세요 (python -m http.server)";
+  });
+})();
+</script>
+</body>
+</html>

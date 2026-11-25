@@ -1,0 +1,27 @@
+[project]
+name = "myproject"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=2.0.0",
+    "gymnasium>=1.4.0",
+    "holidays>=0.109",
+    "openmeteo-requests>=1.7.5",
+    "requests-cache>=1.3.3",
+    "retry-requests>=2.0.0",
+    "stable-baselines3>=2.9.2",
+    "torch>=2.11.0",
+]
+
+[tool.uv]
+python-preference = "only-system"
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128" },
+]

@@ -1,8 +1,36 @@
-# Python cache and virtual environment
-__pycache__/
-*.pyc
+# 가상 환경 및 파이썬 임시 폴더·캐시
 .venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
 
-# Local secrets (API keys, passwords)
+# 실행별 누적 스냅샷 폴더 (results/logs/와 public/data/ 가상 데이터는 포함)
+results/runs/
+!results/logs/
+!public/data/
+
+# 실제 매장 데이터 원본 폴더 (공개·원격 저장소 업로드 금지)
+data/raw/
+data/real/
+raw_data/
+real_data/
+
+# API 키·비밀번호 등 민감 정보 파일
 .env
 .env.*
+*secret*
+*api_key*
+*apikey*
+*.key
+*.pem
+credentials.json
+
+# OS 임시 파일
+.DS_Store
+Thumbs.db

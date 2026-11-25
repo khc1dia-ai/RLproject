@@ -1,0 +1,4 @@
+date,run_type,success_metric,memo
+2026-11-19 20:27:18,1. 가상 데이터 생성과 환경 타당성 검증,"custom=6,563,974원 | do_nothing=6,476,338원 | always_max=6,429,477원",folder=results/runs/20261119_202718_sanity_check | check=PASS | check_env=PASS
+2026-11-19 20:27:20,1. 가상 데이터 생성과 환경 타당성 검증,"custom=6,563,974원 | do_nothing=6,476,338원 | always_max=6,429,477원",folder=results/runs/20261119_202720_sanity_check | check=PASS | check_env=PASS
+2026-11-19 20:34:14,1. 가상 데이터 생성과 환경 타당성 검증,"custom=6,560,956원 | do_nothing=6,476,338원 | always_max=6,410,355원",folder=results/runs/20261119_203414_sanity_check | check=PASS | check_env=PASS
