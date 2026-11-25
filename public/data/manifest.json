@@ -7,7 +7,7 @@
   "capacity_limit": 265,
   "low_sat_threshold": 45,
   "baseline_key": "custom_busy_aware",
-  "reward_formula": "임시 : 하루 주문별 이익(원)",
+  "reward_formula": "v1 : 하루 주문별 이익(원) ÷ 100,000",
   "records": [
     {
       "key": "do_nothing",
@@ -28,6 +28,11 @@
       "key": "custom_busy_aware",
       "label": "내가 정한 규칙 (혼잡도·만족도 반영, 가정)",
       "file": "data/replay_custom_busy_aware.json"
+    },
+    {
+      "key": "ppo_v1",
+      "label": "학습된 정책 v1 (PPO, CPU)",
+      "file": "data/replay_ppo_v1.json"
     }
   ]
 }

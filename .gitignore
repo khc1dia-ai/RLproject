@@ -12,6 +12,8 @@ dist/
 
 # 실행별 누적 스냅샷 폴더 (results/logs/와 public/data/ 가상 데이터는 포함)
 results/runs/
+results/*_test.*
+results/models/*_test.*
 !results/logs/
 !public/data/
 

@@ -9,6 +9,7 @@ from gymnasium import spaces
 import numpy as np
 
 import config
+import reward as reward_module
 
 # 반응 규칙 가정값 묶음 (config.py와 겹치지 않는 값만 모아 둡니다)
 BASE_BUY_RATE = 0.85  # 규칙 1 (가정: 맑음·비 기본 미구매 15% 고정, 총 구매율 85%)
@@ -46,21 +47,11 @@ class CafeDiscountEnv(gym.Env):
         self._load_traits(traits_path)
         self._load_external_factors(external_path)
 
-        # 상태(관측) 6개 값:
-        # [satisfaction, days_left, weather_score, is_weekend, is_holiday, is_busy_cinema]
+        # 상태(관측) 6개 값 (모두 0~1 범위로 맞춤):
+        # [satisfaction/100, days_left/30, weather_score, is_weekend, is_holiday, is_busy_cinema]
         self.observation_space = spaces.Box(
-            low=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32),
-            high=np.array(
-                [
-                    float(config.SATISFACTION_MAX),
-                    float(config.EPISODE_DAYS),
-                    1.0,
-                    1.0,
-                    1.0,
-                    1.0,
-                ],
-                dtype=np.float32,
-            ),
+            low=np.zeros(6, dtype=np.float32),
+            high=np.ones(6, dtype=np.float32),
             dtype=np.float32,
         )
         # 행동: 선택지 3개 (0: 0% 할인, 1: 5% 할인, 2: 10% 할인)
@@ -120,15 +111,14 @@ class CafeDiscountEnv(gym.Env):
 
     def _get_obs(self) -> np.ndarray:
         days_left = config.EPISODE_DAYS - self.day_offset
+        sat_norm = self.satisfaction / float(config.SATISFACTION_MAX)
         if days_left <= 0:
-            return np.array(
-                [self.satisfaction, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32
-            )
+            return np.array([sat_norm, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
         row = self.external_rows[self.start_idx + self.day_offset]
         return np.array(
             [
-                self.satisfaction,
-                float(days_left),
+                sat_norm,
+                float(days_left) / float(config.EPISODE_DAYS),
                 float(row["weather_score"]),
                 float(row["is_weekend"]),
                 float(row["is_holiday"]),
@@ -283,8 +273,8 @@ class CafeDiscountEnv(gym.Env):
             )
         )
 
-        # 임시 보상: 성공 척도를 가장 단순하게 옮긴 하루 이익(원)
-        reward = float(daily_profit)
+        # 보상 계산 (reward.py v1 사용)
+        reward = reward_module.compute_reward(daily_profit)
 
         self.day_offset += 1
         terminated = self.day_offset >= config.EPISODE_DAYS

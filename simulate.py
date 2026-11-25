@@ -1,12 +1,14 @@
-"""Run baseline policy sanity checks on CafeDiscountEnv and export replay JSON."""
+"""Run baseline and trained policy evaluations on CafeDiscountEnv and export replay JSON."""
 
+import argparse
 import csv
 from datetime import date as dt_date
 import json
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
+from stable_baselines3 import PPO
 
 import config
 from env import CafeDiscountEnv
@@ -14,8 +16,10 @@ from env import CafeDiscountEnv
 # 숫자·경로 설정 (검토와 수정이 쉽도록 파일 맨 위에 모아 둡니다)
 RANDOM_POLICY_SEED_OFFSET = 1000  # 가정 (환경 시드와 분리한 무작위 행동 시드)
 CUSTOM_RULE_LOW_SAT_CUTOFF = 50.0  # 가정 (혼잡도 반영 규칙: 만족도 50 미만이면 할인 중단)
+MODEL_V1_PATH = Path("results/models/v1.zip")
 LOGS_DIR = Path("results/logs")
 SUMMARY_PATH = Path("results/sanity_check.md")
+SUMMARY_V1_PATH = Path("results/summary_v1.md")
 PUBLIC_DATA_DIR = Path("public/data")
 PERSONAS_PATH = Path("data/personas.csv")
 TRAITS_PATH = Path("data/customer_traits.csv")
@@ -37,7 +41,8 @@ def policy_random(obs: np.ndarray, rng: np.random.Generator) -> int:
 
 def policy_custom_busy_aware(obs: np.ndarray, rng: np.random.Generator) -> int:
     """가정 규칙: 비 오는 날 평소 10%, 혼잡 요인 1개면 5%, 2개 이상이거나 만족도 50 미만이면 0%."""
-    sat, _days_left, weather, is_wknd, is_hol, is_cin = obs
+    sat_norm, _days_left_norm, weather, is_wknd, is_hol, is_cin = obs
+    sat = float(sat_norm) * config.SATISFACTION_MAX
     if weather < 0.5:
         return 0
     busy_count = int(is_wknd > 0.5) + int(is_hol > 0.5) + int(is_cin > 0.5)
@@ -109,7 +114,7 @@ def evaluate_policy(
     label: str,
     policy_fn: Callable[[np.ndarray, np.random.Generator], int],
     weather_lookup: dict[str, dict[str, float]] | None = None,
-) -> dict[str, float | str]:
+) -> dict[str, Any]:
     if weather_lookup is None:
         weather_lookup = load_weather_lookup()
 
@@ -123,6 +128,8 @@ def evaluate_policy(
     ep_final_sat: list[float] = []
     ep_low_sat_days: list[int] = []
     ep_rainy_discount_rates: list[float] = []
+    action_counts = [0] * len(config.TAKEOUT_DISCOUNT_RATES)
+    rainy_action_counts = [0] * len(config.TAKEOUT_DISCOUNT_RATES)
     replay_episodes: list[dict] = []
 
     with log_path.open("w", encoding="utf-8", newline="") as f:
@@ -158,7 +165,9 @@ def evaluate_policy(
 
                 while not done:
                     day_num += 1
-                    sat, days_left, weather, is_wknd, is_hol, is_cin = obs
+                    sat_norm, days_left_norm, weather, is_wknd, is_hol, is_cin = obs
+                    sat = float(sat_norm) * config.SATISFACTION_MAX
+                    days_left = round(float(days_left_norm) * config.EPISODE_DAYS)
                     action = policy_fn(obs, policy_rng)
                     next_obs, reward, terminated, truncated, info = env.step(action)
                     done = terminated or truncated
@@ -169,7 +178,9 @@ def evaluate_policy(
                     ontime_sum += info["ontime_rate"]
                     if info["satisfaction"] < config.LOW_SATISFACTION_THRESHOLD:
                         low_sat_days += 1
+                    action_counts[int(action)] += 1
                     if weather > 0.5:
+                        rainy_action_counts[int(action)] += 1
                         ep_rainy_discount_rates.append(info["applied_discount_rate"])
 
                     d_str = info["date"]
@@ -275,10 +286,30 @@ def evaluate_policy(
         "avg_rainy_discount_pct": float(np.mean(ep_rainy_discount_rates) * 100.0)
         if ep_rainy_discount_rates
         else 0.0,
+        "action_counts": action_counts,
+        "rainy_action_counts": rainy_action_counts,
     }
 
 
-def export_manifest() -> None:
+def make_ppo_policy(
+    model_path: Path,
+) -> Callable[[np.ndarray, np.random.Generator], int]:
+    if not model_path.exists():
+        raise FileNotFoundError(f"학습된 모델 파일을 찾을 수 없습니다: {model_path}")
+    model = PPO.load(model_path, device="cpu")
+
+    def _policy(obs: np.ndarray, rng: np.random.Generator) -> int:
+        action, _ = model.predict(obs, deterministic=True)
+        return int(action)
+
+    return _policy
+
+
+def export_manifest(
+    policies: list[tuple[str, str, Callable[[np.ndarray, np.random.Generator], int]]]
+    | None = None,
+) -> None:
+    target_policies = policies if policies is not None else POLICIES
     manifest = {
         "store_name": config.STORE_NAME,
         "business_type": config.BUSINESS_TYPE,
@@ -288,16 +319,84 @@ def export_manifest() -> None:
         "capacity_limit": config.DAILY_CAPACITY_LIMIT,
         "low_sat_threshold": config.LOW_SATISFACTION_THRESHOLD,
         "baseline_key": "custom_busy_aware",
-        "reward_formula": "임시 : 하루 주문별 이익(원)",
+        "reward_formula": "v1 : 하루 주문별 이익(원) ÷ 100,000",
         "records": [
             {"key": k, "label": lbl, "file": f"data/replay_{k}.json"}
-            for k, lbl, _ in POLICIES
+            for k, lbl, _ in target_policies
         ],
     }
     (PUBLIC_DATA_DIR / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def evaluate_v1(model_path: Path = MODEL_V1_PATH) -> list[dict[str, Any]]:
+    weather_lookup = load_weather_lookup()
+    export_personas_summary()
+
+    ppo_entry = (
+        "ppo_v1",
+        "학습된 정책 v1 (PPO, CPU)",
+        make_ppo_policy(model_path),
+    )
+    all_policies = [*POLICIES, ppo_entry]
+    results = [
+        evaluate_policy(k, lbl, fn, weather_lookup) for k, lbl, fn in all_policies
+    ]
+    export_manifest(all_policies)
+
+    by_key = {r["key"]: r for r in results}
+    v1_profit = float(by_key["ppo_v1"]["avg_30d_profit"])
+    do_nothing_profit = float(by_key["do_nothing"]["avg_30d_profit"])
+    custom_profit = float(by_key["custom_busy_aware"]["avg_30d_profit"])
+    total_steps = (
+        len(config.EVAL_START_DATES) * len(config.EVAL_SEEDS) * config.EPISODE_DAYS
+    )
+    rainy_steps = sum(by_key["ppo_v1"]["rainy_action_counts"])
+
+    SUMMARY_V1_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# 학습된 정책 v1 평가 요약 (2025년 36판 기준)",
+        "",
+        f"- **평가 조건:** `1. 매장 정의` 평가 방법과 동일 — 2025년 비겹침 시작일 {len(config.EVAL_START_DATES)}개 × 난수 시드 {len(config.EVAL_SEEDS)}개(`{config.EVAL_SEEDS}`) = 정책별 총 {len(config.EVAL_START_DATES) * len(config.EVAL_SEEDS)}판 평균 (한 판 {config.EPISODE_DAYS}일, 총 {total_steps:,}일 중 비·눈 오는 날 {rainy_steps:,}일)",
+        f"- **평가 모델:** `{model_path.as_posix()}` (`PPO` / `CPU`, 평가 시 결정적 선택 `deterministic=True`)",
+        f"- **핵심 비교:** v1 평균 30일 이익 **{v1_profit:,.0f}원** (`아무것도 안 함` 대비 **{v1_profit - do_nothing_profit:+,.0f}원**, `내가 정한 규칙` 대비 **{v1_profit - custom_profit:+,.0f}원**)",
+        "",
+        "## 1. 성공 척도 및 보조 지표 비교",
+        "",
+        f"| 정책 / 시험 규칙 | 30일 누적 이익(원, 성공 척도) | 하루 평균 주문 수(잔) | 평균 제시간 제공률(%) | 최종 만족도(점) | 만족도 {config.LOW_SATISFACTION_THRESHOLD} 미만 일수(일) | 비 오는 날 평균 할인(%) |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for r in results:
+        lines.append(
+            f"| {r['label']} | {r['avg_30d_profit']:,.0f} | {r['avg_daily_orders']:.1f} "
+            f"| {r['avg_ontime_pct']:.2f}% | {r['avg_final_sat']:.1f} "
+            f"| {r['avg_low_sat_days']:.2f} | {r['avg_rainy_discount_pct']:.2f}% |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 2. 행동별 선택 횟수 (36판 합계)",
+            "",
+            "> 맑은 날은 어떤 행동을 고르든 자동으로 정상가(0%)가 적용되므로, 실제 할인 결정이 반영되는 **비 오는 날 횟수**와 **전체 1,080일 선택 횟수**를 함께 정리했습니다.",
+            "",
+            "| 정책 / 시험 규칙 | 비 오는 날 `0%` (회) | 비 오는 날 `5%` (회) | 비 오는 날 `10%` (회) | 전체 `행동 0(0%)` (회) | 전체 `행동 1(5%)` (회) | 전체 `행동 2(10%)` (회) |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for r in results:
+        r0, r1, r2 = r["rainy_action_counts"]
+        a0, a1, a2 = r["action_counts"]
+        lines.append(
+            f"| {r['label']} | {r0:,} | {r1:,} | {r2:,} | {a0:,} | {a1:,} | {a2:,} |"
+        )
+
+    SUMMARY_V1_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("\n".join(lines))
+    print(f"\n저장 완료: {SUMMARY_V1_PATH}, {LOGS_DIR}/*.csv 및 {PUBLIC_DATA_DIR}/*.json")
+    return results
 
 
 def main() -> list[dict[str, float | str]]:
@@ -333,4 +432,14 @@ def main() -> list[dict[str, float | str]]:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="CafeDiscountEnv 정책 시뮬레이션 및 평가")
+    parser.add_argument(
+        "--eval-v1",
+        action="store_true",
+        help="학습된 v1 정책을 시험 규칙 4종과 함께 평가해 results/summary_v1.md 저장",
+    )
+    args = parser.parse_args()
+    if args.eval_v1:
+        evaluate_v1()
+    else:
+        main()
